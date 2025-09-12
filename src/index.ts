@@ -10,3 +10,4 @@ export { AdEnvironmentSimulator } from "./environment/simulator";
 export { TrainingPipeline } from "./training/pipeline";
 export { ConsoleLogger } from "./observers/consoleLogger";
 export { MetricsCollector } from "./observers/metricsCollector";
+export { DiagnosticLogger } from "./observers/diagnosticLogger";

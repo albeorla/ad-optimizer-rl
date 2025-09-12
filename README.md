@@ -8,6 +8,8 @@
 
 > **An intelligent reinforcement learning system that automates and optimizes advertising campaigns for e-commerce t-shirt businesses across multiple platforms, maximizing profitability through continuous learning.**
 
+Note: The code has been modularized into separate files for clarity and maintainability. See the Project Structure section below for details and updated commands.
+
 ## 📋 Table of Contents
 
 - [Overview](#-overview)
@@ -28,6 +30,37 @@
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Acknowledgments](#-acknowledgments)
+
+## 🧱 Project Structure (Modularized)
+
+This repo uses a modular TypeScript structure:
+
+```
+src/
+  agent/
+    base.ts            # RLAgent abstract base
+    dqnAgent.ts        # DQNAgent implementation
+  environment/
+    simulator.ts       # Ad environment simulator
+  observers/
+    types.ts           # TrainingObserver interface
+    consoleLogger.ts   # Console logger observer
+    metricsCollector.ts# Metrics collector observer
+  platforms/
+    base.ts            # AdPlatformAPI abstract base
+    factory.ts         # Platform factory
+    mockTikTok.ts      # TikTok mock API
+    mockInstagram.ts   # Instagram mock API
+  types.ts             # Shared types (state/actions/metrics)
+  index.ts             # Barrel exports
+  main.ts              # CLI/entry point (training demo)
+```
+
+Build and run commands:
+
+- Start (dev): `npm start` (ts-node `src/main.ts`)
+- Build: `npm run build` (outputs to `dist/`)
+- Start (prod): `npm run start:prod` (builds then runs `node dist/main.js`)
 
 ## 🌟 Overview
 
@@ -971,6 +1004,7 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
+# 🎯 RL-Powered T-Shirt Ad Campaign Optimizer
 [Full license text...]
 ```
 

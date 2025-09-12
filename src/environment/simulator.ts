@@ -8,11 +8,13 @@ export class AdEnvironmentSimulator {
   private currentState: AdEnvironmentState;
   private timeStep: number = 0;
 
-  constructor() {
-    this.platforms = new Map([
-      ["tiktok", new MockTikTokAdsAPI()],
-      ["instagram", new MockInstagramAdsAPI()],
-    ]);
+  constructor(opts?: { shapingStrength?: number }) {
+    const shaping = opts?.shapingStrength ?? 1;
+    const entries: Array<[string, AdPlatformAPI]> = [
+      ["tiktok", new MockTikTokAdsAPI(shaping)],
+      ["instagram", new MockInstagramAdsAPI(shaping)],
+    ];
+    this.platforms = new Map<string, AdPlatformAPI>(entries);
 
     this.currentState = this.generateInitialState();
   }
@@ -39,16 +41,29 @@ export class AdEnvironmentSimulator {
     return this.currentState;
   }
 
-  step(action: AdAction): [AdEnvironmentState, number, boolean] {
+  step(action: AdAction): [AdEnvironmentState, number, boolean, import("../types").RewardMetrics] {
     const platform = this.platforms.get(action.platform);
     if (!platform) throw new Error(`Platform ${action.platform} not found`);
 
     const metrics = platform.simulatePerformance(this.currentState, action);
-    const reward = metrics.profit / 1000;
+    const reward = this.calculateReward(metrics);
     this.currentState = this.updateState(action);
     this.timeStep++;
     const done = this.timeStep >= 24;
-    return [this.currentState, reward, done];
+    return [this.currentState, reward, done, metrics];
+  }
+
+  // Reward shaping to guide learning toward good ROAS and sensible spend
+  private calculateReward(metrics: import("../types").RewardMetrics): number {
+    let reward = metrics.profit / 1000; // Base reward
+    // Bonus for strong ROAS
+    if (metrics.roas > 3.0) reward += 0.5;
+    else if (metrics.roas > 2.0) reward += 0.2;
+    // Penalty for overspending heavily
+    if (metrics.adSpend > 1500) reward -= (metrics.adSpend - 1500) / 6000;
+    // Small bonus per conversion
+    reward += metrics.conversions * 0.01;
+    return reward;
   }
 
   private updateState(action: AdAction): AdEnvironmentState {
@@ -73,4 +88,3 @@ export class AdEnvironmentSimulator {
     return newState;
   }
 }
-

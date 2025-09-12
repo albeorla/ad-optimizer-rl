@@ -12,9 +12,24 @@ export class DQNAgent extends RLAgent {
   }> = [];
   private maxReplaySize: number = 1000;
 
-  constructor() {
+  constructor(opts?: {
+    learningRate?: number;
+    discountFactor?: number;
+    epsilonStart?: number;
+    epsilonDecay?: number;
+    minEpsilon?: number;
+  }) {
     super();
+    if (opts?.learningRate !== undefined) this.learningRate = opts.learningRate;
+    if (opts?.discountFactor !== undefined) this.discountFactor = opts.discountFactor;
+    if (opts?.epsilonStart !== undefined) this.epsilon = opts.epsilonStart;
+    if (opts?.epsilonDecay !== undefined) this.epsilonDecay = opts.epsilonDecay;
+    if (opts?.minEpsilon !== undefined) this.minEpsilon = opts.minEpsilon;
     this.actionSpace = this.generateActionSpace();
+  }
+
+  private pickRandom<T>(arr: readonly T[]): T {
+    return arr[Math.floor(Math.random() * arr.length)]!;
   }
 
   private generateActionSpace(): AdAction[] {
@@ -34,7 +49,7 @@ export class DQNAgent extends RLAgent {
               targetAgeGroup: age,
               targetInterests: this.generateInterests(),
               creativeType: creative,
-              bidStrategy: bidStrategies[Math.floor(Math.random() * bidStrategies.length)],
+              bidStrategy: this.pickRandom(bidStrategies),
               platform,
             });
           }
@@ -49,7 +64,7 @@ export class DQNAgent extends RLAgent {
     const numInterests = Math.floor(Math.random() * 3) + 1;
     const interests: string[] = [];
     for (let i = 0; i < numInterests; i++) {
-      const interest = allInterests[Math.floor(Math.random() * allInterests.length)];
+      const interest = this.pickRandom(allInterests);
       if (!interests.includes(interest)) interests.push(interest);
     }
     return interests;
@@ -77,14 +92,14 @@ export class DQNAgent extends RLAgent {
 
   selectAction(state: AdEnvironmentState): AdAction {
     if (Math.random() < this.epsilon) {
-      return this.actionSpace[Math.floor(Math.random() * this.actionSpace.length)];
+      return this.pickRandom(this.actionSpace);
     } else {
       const stateKey = this.stateToKey(state);
       const stateQValues = this.qTable.get(stateKey);
       if (!stateQValues || stateQValues.size === 0) {
-        return this.actionSpace[Math.floor(Math.random() * this.actionSpace.length)];
+        return this.pickRandom(this.actionSpace);
       }
-      let bestAction = this.actionSpace[0];
+      let bestAction = this.actionSpace[0]!;
       let bestValue = -Infinity;
       for (const action of this.actionSpace) {
         const actionKey = this.actionToKey(action);
@@ -133,7 +148,7 @@ export class DQNAgent extends RLAgent {
   private replayExperience(): void {
     const batchSize = Math.min(32, this.experienceReplay.length);
     const batch = [] as typeof this.experienceReplay;
-    for (let i = 0; i < batchSize; i++) batch.push(this.experienceReplay[Math.floor(Math.random() * this.experienceReplay.length)]);
+    for (let i = 0; i < batchSize; i++) batch.push(this.pickRandom(this.experienceReplay));
 
     for (const experience of batch) {
       const stateKey = this.stateToKey(experience.state);
@@ -164,5 +179,32 @@ export class DQNAgent extends RLAgent {
   load(filepath: string): void {
     console.log(`Loading model from ${filepath}`);
   }
-}
 
+  // Introspection helpers for diagnostics
+  getEpsilon(): number {
+    return this.epsilon;
+  }
+  getQTableSize(): number {
+    let total = 0;
+    for (const m of this.qTable.values()) total += m.size;
+    return total;
+  }
+
+  // Optional warm-start seeding
+  seedHeuristics(stateTemplate: AdEnvironmentState): void {
+    const hours = [18, 19, 20];
+    const combos: AdAction[] = [
+      { budgetAdjustment: 1.25, targetAgeGroup: "18-24", targetInterests: ["fashion"], creativeType: "ugc", bidStrategy: "CPC", platform: "tiktok" },
+      { budgetAdjustment: 1.0, targetAgeGroup: "25-34", targetInterests: ["lifestyle"], creativeType: "product", bidStrategy: "CPM", platform: "instagram" },
+    ];
+    for (const hod of hours) {
+      const state = { ...stateTemplate, hourOfDay: hod };
+      const sk = this.stateToKey(state);
+      if (!this.qTable.has(sk)) this.qTable.set(sk, new Map());
+      for (const a of combos) {
+        const ak = this.actionToKey(a);
+        this.qTable.get(sk)!.set(ak, 5.0);
+      }
+    }
+  }
+}

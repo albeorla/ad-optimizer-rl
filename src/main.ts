@@ -3,22 +3,36 @@ import { AdEnvironmentSimulator } from "./environment/simulator";
 import { TrainingPipeline } from "./training/pipeline";
 import { ConsoleLogger } from "./observers/consoleLogger";
 import { MetricsCollector } from "./observers/metricsCollector";
+import { DiagnosticLogger } from "./observers/diagnosticLogger";
 
 async function main() {
   console.log("=".repeat(60));
   console.log("🎯 T-SHIRT AD OPTIMIZATION RL SYSTEM");
   console.log("=".repeat(60));
 
-  const agent = new DQNAgent();
-  const environment = new AdEnvironmentSimulator();
+  // Parse simple CLI args
+  const args = process.argv.slice(2);
+  const getArg = (name: string) => {
+    const p = args.find((a) => a.startsWith(`--${name}=`));
+    return p ? p.split("=")[1] : undefined;
+  };
+  const episodes = Number(getArg("episodes") ?? process.env.EPISODES ?? 50);
+  const epsilonDecay = Number(getArg("epsilonDecay") ?? process.env.EPS_DECAY ?? 0.999);
+  const shaping = Number(getArg("shaping") ?? process.env.SHAPING ?? 1);
+
+  const agent = new DQNAgent({ epsilonDecay });
+  const environment = new AdEnvironmentSimulator({ shapingStrength: shaping });
   const pipeline = new TrainingPipeline(agent, environment);
 
   const logger = new ConsoleLogger();
   const metricsCollector = new MetricsCollector();
   pipeline.addObserver(logger);
   pipeline.addObserver(metricsCollector);
+  pipeline.addObserver(new DiagnosticLogger());
 
-  await pipeline.train(50);
+  // Warm-start seeding by default using environment's initial state
+  agent.seedHeuristics(environment.reset());
+  await pipeline.train(episodes);
   metricsCollector.printSummary();
   agent.save("final_model.json");
 
@@ -43,4 +57,3 @@ if (require.main === module) {
 }
 
 export { main };
-

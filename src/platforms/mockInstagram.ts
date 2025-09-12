@@ -2,6 +2,12 @@ import { AdAction, AdEnvironmentState, RewardMetrics } from "../types";
 import { AdPlatformAPI } from "./base";
 
 export class MockInstagramAdsAPI extends AdPlatformAPI {
+  private shapingStrength: number;
+
+  constructor(shapingStrength: number = 1) {
+    super();
+    this.shapingStrength = shapingStrength;
+  }
   async updateCampaign(campaignId: string, params: any): Promise<any> {
     return { success: true, campaignId, platform: "instagram" };
   }
@@ -14,28 +20,40 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
     state: AdEnvironmentState,
     action: AdAction
   ): RewardMetrics {
-    let baseConversion = 0.025;
+    // Budget-driven base impressions
+    const budgetAmount = state.currentBudget * action.budgetAdjustment;
+    const baseImpressions = budgetAmount * 18; // IG slightly fewer per $ than TikTok
 
-    if (action.creativeType === "lifestyle" || action.creativeType === "product") {
-      baseConversion *= 1.3;
+    // Performance multipliers: demographics, creative, time-of-day
+    let performanceMultiplier = 1.0;
+    if (action.targetAgeGroup === "25-34" || action.targetAgeGroup === "35-44") performanceMultiplier *= 1.25 * this.shapingStrength;
+    if (action.creativeType === "lifestyle" || action.creativeType === "product") performanceMultiplier *= 1.3 * this.shapingStrength;
+    // Discounts acceptable on IG but neutral
+    if (action.creativeType === "discount") performanceMultiplier *= 1.0;
+    // Afternoon/early evening peak
+    if (state.hourOfDay >= 15 && state.hourOfDay <= 20) performanceMultiplier *= 1.3;
+    else if (state.hourOfDay >= 0 && state.hourOfDay <= 6) performanceMultiplier *= 0.7;
+    // Diminishing returns for aggressive budgets
+    if (action.budgetAdjustment > 1.5) {
+      performanceMultiplier *= Math.max(0.5, 2.0 - action.budgetAdjustment * 0.8);
     }
 
-    if (action.targetAgeGroup === "25-34" || action.targetAgeGroup === "35-44") {
-      baseConversion *= 1.25;
-    }
-
-    const impressions = Math.floor(action.budgetAdjustment * 8000 * Math.random());
-    const clicks = Math.floor(impressions * state.historicalCTR * 1.1);
-    const conversions = Math.floor(clicks * baseConversion);
-    const revenue = conversions * 29.99;
-    const adSpend = action.budgetAdjustment * state.currentBudget;
+    const effectiveImpressions = baseImpressions * performanceMultiplier;
+    const ctr = 0.022 * performanceMultiplier; // IG CTR
+    const clicks = Math.floor(effectiveImpressions * ctr);
+    const conversionRate = 0.032 * performanceMultiplier; // IG CVR
+    const conversions = Math.floor(clicks * conversionRate);
+    const adSpend = budgetAmount;
+    const variance = 0.9 + Math.random() * 0.2; // ±10%
+    const revenueNominal = conversions * 29.99;
+    const revenue = revenueNominal * variance;
 
     return {
       revenue,
       adSpend,
       profit: revenue - adSpend,
       roas: adSpend > 0 ? revenue / adSpend : 0,
-      conversions,
+      conversions: Math.floor(conversions * variance),
     };
   }
 
@@ -49,4 +67,3 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
     };
   }
 }
-

@@ -3,6 +3,12 @@ import { AdPlatformAPI } from "./base";
 
 export class MockTikTokAdsAPI extends AdPlatformAPI {
   private campaigns: Map<string, any> = new Map();
+  private shapingStrength: number;
+
+  constructor(shapingStrength: number = 1) {
+    super();
+    this.shapingStrength = shapingStrength;
+  }
 
   async updateCampaign(campaignId: string, params: any): Promise<any> {
     await this.simulateLatency();
@@ -23,30 +29,44 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
     state: AdEnvironmentState,
     action: AdAction
   ): RewardMetrics {
-    let baseConversion = 0.02;
+    // Budget-driven base impressions ($1 ~ 20 impressions)
+    const budgetAmount = state.currentBudget * action.budgetAdjustment;
+    const baseImpressions = budgetAmount * 20;
 
-    if (action.targetAgeGroup === "18-24") {
-      baseConversion *= 1.5;
-    } else if (action.targetAgeGroup === "25-34") {
-      baseConversion *= 1.2;
+    // Performance multiplier: demographics, creative, time-of-day
+    let performanceMultiplier = 1.0;
+    // TikTok: young audiences excel
+    if (action.targetAgeGroup === "18-24") performanceMultiplier *= 1.5 * this.shapingStrength;
+    else if (action.targetAgeGroup === "25-34") performanceMultiplier *= 1.2;
+    else if (action.targetAgeGroup === "45+") performanceMultiplier *= 0.8;
+    // TikTok: UGC thrives; discounts underperform
+    if (action.creativeType === "ugc") performanceMultiplier *= 1.3 * this.shapingStrength;
+    else if (action.creativeType === "discount") performanceMultiplier *= 0.8;
+    // Evening peak
+    if (state.hourOfDay >= 20 && state.hourOfDay <= 23) performanceMultiplier *= 1.4;
+    else if (state.hourOfDay >= 0 && state.hourOfDay <= 6) performanceMultiplier *= 0.6;
+    // Diminishing returns for aggressive budgets
+    if (action.budgetAdjustment > 1.5) {
+      performanceMultiplier *= Math.max(0.5, 2.0 - action.budgetAdjustment * 0.8);
     }
 
-    if (action.creativeType === "ugc") {
-      baseConversion *= 1.4;
-    }
-
-    const impressions = Math.floor(action.budgetAdjustment * 10000 * Math.random());
-    const clicks = Math.floor(impressions * state.historicalCTR);
-    const conversions = Math.floor(clicks * baseConversion);
-    const revenue = conversions * 29.99;
-    const adSpend = action.budgetAdjustment * state.currentBudget;
+    // Calculate realistic metrics
+    const effectiveImpressions = baseImpressions * performanceMultiplier;
+    const ctr = 0.02 * performanceMultiplier; // 2% base CTR
+    const clicks = Math.floor(effectiveImpressions * ctr);
+    const conversionRate = 0.03 * performanceMultiplier; // 3% base CVR
+    const conversions = Math.floor(clicks * conversionRate);
+    const revenueNominal = conversions * 29.99;
+    const adSpend = budgetAmount; // actual spend equals budget
+    const variance = 0.9 + Math.random() * 0.2; // ±10%
+    const revenue = revenueNominal * variance;
 
     return {
       revenue,
       adSpend,
       profit: revenue - adSpend,
       roas: adSpend > 0 ? revenue / adSpend : 0,
-      conversions,
+      conversions: Math.floor(conversions * variance),
     };
   }
 
@@ -64,4 +84,3 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
     };
   }
 }
-

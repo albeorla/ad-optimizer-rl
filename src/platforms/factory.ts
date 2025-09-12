@@ -3,9 +3,9 @@ import { MockTikTokAdsAPI } from "./mockTikTok";
 import { MockInstagramAdsAPI } from "./mockInstagram";
 
 export class AdPlatformFactory {
-  private static platforms: Map<string, AdPlatformAPI> = new Map([
-    ["tiktok", new MockTikTokAdsAPI()],
-    ["instagram", new MockInstagramAdsAPI()],
+  private static platforms: Map<string, AdPlatformAPI> = new Map<string, AdPlatformAPI>([
+    ["tiktok", new MockTikTokAdsAPI() as AdPlatformAPI],
+    ["instagram", new MockInstagramAdsAPI() as AdPlatformAPI],
   ]);
 
   static getPlatform(platform: string): AdPlatformAPI {
@@ -20,4 +20,3 @@ export class AdPlatformFactory {
     this.platforms.set(name, api);
   }
 }
-
