@@ -1,0 +1,23 @@
+import { AdPlatformAPI } from "./base";
+import { MockTikTokAdsAPI } from "./mockTikTok";
+import { MockInstagramAdsAPI } from "./mockInstagram";
+
+export class AdPlatformFactory {
+  private static platforms: Map<string, AdPlatformAPI> = new Map([
+    ["tiktok", new MockTikTokAdsAPI()],
+    ["instagram", new MockInstagramAdsAPI()],
+  ]);
+
+  static getPlatform(platform: string): AdPlatformAPI {
+    const api = this.platforms.get(platform);
+    if (!api) {
+      throw new Error(`Platform ${platform} not supported`);
+    }
+    return api;
+  }
+
+  static registerPlatform(name: string, api: AdPlatformAPI): void {
+    this.platforms.set(name, api);
+  }
+}
+
