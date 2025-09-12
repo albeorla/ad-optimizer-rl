@@ -69,6 +69,9 @@ export class TrainingPipeline {
         adSpend: adSpendSum,
       });
 
+      // Episode end hook for agent (e.g., learning-rate schedule)
+      this.agent.onEpisodeEnd(episode + 1);
+
       if ((episode + 1) % 100 === 0) {
         this.agent.save(`model_checkpoint_${episode + 1}.json`);
       }

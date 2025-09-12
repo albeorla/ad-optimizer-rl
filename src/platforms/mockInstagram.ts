@@ -30,8 +30,8 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
     if (action.creativeType === "lifestyle" || action.creativeType === "product") performanceMultiplier *= 1.3 * this.shapingStrength;
     // Discounts acceptable on IG but neutral
     if (action.creativeType === "discount") performanceMultiplier *= 1.0;
-    // Afternoon/early evening peak
-    if (state.hourOfDay >= 15 && state.hourOfDay <= 20) performanceMultiplier *= 1.3;
+    // Peak hours boost (evening)
+    if (state.hourOfDay >= 18 && state.hourOfDay <= 22) performanceMultiplier *= 1.5;
     else if (state.hourOfDay >= 0 && state.hourOfDay <= 6) performanceMultiplier *= 0.7;
     // Diminishing returns for aggressive budgets
     if (action.budgetAdjustment > 1.5) {

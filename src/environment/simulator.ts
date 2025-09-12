@@ -57,7 +57,8 @@ export class AdEnvironmentSimulator {
   private calculateReward(metrics: import("../types").RewardMetrics): number {
     let reward = metrics.profit / 1000; // Base reward
     // Bonus for strong ROAS
-    if (metrics.roas > 3.0) reward += 0.5;
+    if (metrics.roas > 4.0) reward += 1.0;
+    else if (metrics.roas > 3.0) reward += 0.5;
     else if (metrics.roas > 2.0) reward += 0.2;
     // Penalty for overspending heavily
     if (metrics.adSpend > 1500) reward -= (metrics.adSpend - 1500) / 6000;

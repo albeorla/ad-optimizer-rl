@@ -18,9 +18,10 @@ async function main() {
   };
   const episodes = Number(getArg("episodes") ?? process.env.EPISODES ?? 50);
   const epsilonDecay = Number(getArg("epsilonDecay") ?? process.env.EPS_DECAY ?? 0.999);
+  const lrDecay = Number(getArg("lrDecay") ?? process.env.LR_DECAY ?? 0.99);
   const shaping = Number(getArg("shaping") ?? process.env.SHAPING ?? 1);
 
-  const agent = new DQNAgent({ epsilonDecay });
+  const agent = new DQNAgent({ epsilonDecay, lrDecay });
   const environment = new AdEnvironmentSimulator({ shapingStrength: shaping });
   const pipeline = new TrainingPipeline(agent, environment);
 

@@ -11,6 +11,8 @@ export class DQNAgent extends RLAgent {
     nextState: AdEnvironmentState;
   }> = [];
   private maxReplaySize: number = 1000;
+  private initialLearningRate: number = this.learningRate;
+  private lrDecay: number = 0.99;
 
   constructor(opts?: {
     learningRate?: number;
@@ -18,6 +20,7 @@ export class DQNAgent extends RLAgent {
     epsilonStart?: number;
     epsilonDecay?: number;
     minEpsilon?: number;
+    lrDecay?: number;
   }) {
     super();
     if (opts?.learningRate !== undefined) this.learningRate = opts.learningRate;
@@ -25,6 +28,8 @@ export class DQNAgent extends RLAgent {
     if (opts?.epsilonStart !== undefined) this.epsilon = opts.epsilonStart;
     if (opts?.epsilonDecay !== undefined) this.epsilonDecay = opts.epsilonDecay;
     if (opts?.minEpsilon !== undefined) this.minEpsilon = opts.minEpsilon;
+    if (opts?.lrDecay !== undefined) this.lrDecay = opts.lrDecay;
+    this.initialLearningRate = this.learningRate;
     this.actionSpace = this.generateActionSpace();
   }
 
@@ -206,5 +211,10 @@ export class DQNAgent extends RLAgent {
         this.qTable.get(sk)!.set(ak, 5.0);
       }
     }
+  }
+
+  // Episode end hook: apply learning rate schedule
+  onEpisodeEnd(episode: number): void {
+    this.learningRate = this.initialLearningRate * Math.pow(this.lrDecay, episode);
   }
 }

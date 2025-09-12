@@ -16,5 +16,7 @@ export abstract class RLAgent {
   ): void;
   abstract save(filepath: string): void;
   abstract load(filepath: string): void;
-}
 
+  // Optional lifecycle hook: override in subclasses if needed
+  onEpisodeEnd(_episode: number): void {}
+}

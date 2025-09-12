@@ -42,8 +42,8 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
     // TikTok: UGC thrives; discounts underperform
     if (action.creativeType === "ugc") performanceMultiplier *= 1.3 * this.shapingStrength;
     else if (action.creativeType === "discount") performanceMultiplier *= 0.8;
-    // Evening peak
-    if (state.hourOfDay >= 20 && state.hourOfDay <= 23) performanceMultiplier *= 1.4;
+    // Peak hours boost (evening)
+    if (state.hourOfDay >= 18 && state.hourOfDay <= 22) performanceMultiplier *= 1.5;
     else if (state.hourOfDay >= 0 && state.hourOfDay <= 6) performanceMultiplier *= 0.6;
     // Diminishing returns for aggressive budgets
     if (action.budgetAdjustment > 1.5) {
