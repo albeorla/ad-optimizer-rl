@@ -13,6 +13,37 @@ This tutorial shows how to refactor a table-based Q-learning agent into a Deep Q
 
 ---
 
+## A Concise Guide to Implementing a DQN Agent
+
+This guide outlines the key steps to transition from a Q-table to a neural network–based Deep Q-Network (DQN) agent using Torch.js.
+
+1) The Goal: From Table to Network
+- Replace the Q-table (lookups) with a Q-network that approximates Q(s, a), enabling generalization in large/continuous state spaces.
+
+2) State & Action Encoding
+- State encoding: deterministic function mapping a state object to a fixed-length numeric vector (use one-hot for categorical features; normalize or scale numeric features; consider cyclical encodings for time).
+- Action encoding: define a stable, finite action set and map each action to an integer index; the network output dimension equals the number of actions.
+
+3) Building the Q-Network
+- Create `qNet` (MLP with 2–3 hidden layers, ReLU) and a frozen `targetNet` clone.
+- Use Adam optimizer and MSE loss on TD targets.
+
+4) Stabilizing Training
+- Experience replay: random mini-batches from a fixed-capacity buffer of (s, a, r, s', done).
+- Target network: periodically copy weights from `qNet` to `targetNet` to stabilize targets.
+
+5) The Training Step
+- For each batch, compute predictions and TD targets `y = r + γ·(1−done)·max_a' Q_target(s', a')`.
+- Minimize MSE between `q_sa` and `y`, backpropagate, and step optimizer (optionally clip gradients).
+
+6) Managing Learning Over Time
+- ε-greedy exploration: start high (e.g., 1.0) and decay to a floor (e.g., 0.05).
+- Learning rate scheduling: optionally decay LR from 1e-3 toward a smaller value.
+
+7) Integration and Persistence
+- Integrate into `dqnAgent.ts`: replace table operations with network forward/backward, replay, and target sync.
+- Implement `save/load` for model weights, optimizer state, and training metadata (e.g., ε).
+
 ## 1) Starting Point (Current Code)
 
 The existing `DQNAgent` in `src/agent/dqnAgent.ts` keeps a `Map`-based Q-table and updates entries using the tabular Q-learning rule:
@@ -25,10 +56,173 @@ Action selection is ε-greedy and there is a simple replay pass that re-applies 
 
 ## 2) Define State Features and Action Indexing
 
-- State encoder: Convert `AdEnvironmentState` into a fixed-length numeric vector. For example: one-hot day-of-week (7), one-hot hour (24) or cyclical sin/cos (2), normalized budget (1), one-hot age group (4), one-hot creative type (4), one-hot platform (2), and normalized historical metrics (e.g., CTR, CVR). Keep this deterministic and documented.
-- Action indexing: Keep the existing discrete action generation but map each `AdAction` to a stable index `0..A-1`. Store the mapping once at construction for reproducibility.
+This repo’s `AdEnvironmentState` includes: `dayOfWeek`, `hourOfDay`, `currentBudget`, `targetAgeGroup`, `targetInterests`, `creativeType`, `platform`, `historicalCTR`, `historicalCVR`, `competitorActivity`, `seasonality`.
 
-Result: `stateVec: Float32Array` with size `S`, and `numActions: A` with a mapping `actionIndex ↔ AdAction`.
+Below is a deterministic encoder tailored to these features. It uses cyclical encodings for time, multi-hot for interests, one-hot for categories, and normalized scalars for continuous values.
+
+### State Encoding (Repo Features)
+
+```ts
+// Fixed categorical orderings for determinism
+const AGE_GROUPS = ["18-24", "25-34", "35-44", "45+"] as const;
+const CREATIVE_TYPES = ["lifestyle", "product", "discount", "ugc"] as const;
+const PLATFORMS = ["tiktok", "instagram"] as const; // actionable platforms
+
+// Canonical interest vocabulary observed in codebase
+const INTEREST_VOCAB = [
+  "fashion",
+  "sports",
+  "music",
+  "tech",
+  "fitness",
+  "art",
+  "travel",
+] as const;
+
+type AdEnvironmentState = {
+  dayOfWeek: number;      // 0-6
+  hourOfDay: number;      // 0-23
+  currentBudget: number;  // USD
+  targetAgeGroup: string;
+  targetInterests: string[];
+  creativeType: string;
+  platform: string;       // "tiktok" | "instagram" | "shopify"
+  historicalCTR: number;  // 0..1
+  historicalCVR: number;  // 0..1
+  competitorActivity: number; // 0..1
+  seasonality: number;        // 0..1
+};
+
+function cyclicalPair(value: number, period: number): [number, number] {
+  const angle = (2 * Math.PI * (value % period)) / period;
+  return [Math.sin(angle), Math.cos(angle)];
+}
+
+function oneHot<T extends readonly string[]>(cats: T, v: string): number[] {
+  return cats.map((c) => (c === v ? 1 : 0));
+}
+
+function multiHot<T extends readonly string[]>(vocab: T, values: string[]): number[] {
+  const set = new Set(values);
+  return vocab.map((t) => (set.has(t) ? 1 : 0));
+}
+
+function clamp(x: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, x));
+}
+
+// Adjust divisor/log-scale to your expected budget range
+function normalizeBudget(usd: number): number {
+  return clamp(usd / 100, 0, 2.0); // e.g., $0–$200 → 0–2
+}
+
+export function encodeState(state: AdEnvironmentState): number[] {
+  // Time (cyclical): hour + day → 4 dims
+  const [sinH, cosH] = cyclicalPair(state.hourOfDay, 24);
+  const [sinD, cosD] = cyclicalPair(state.dayOfWeek, 7);
+
+  // Budget (normalized) → 1 dim
+  const budget = [normalizeBudget(state.currentBudget)];
+
+  // Categorical (one-hot): age(4) + creative(4) + platform(2) → 10 dims
+  const age = oneHot(AGE_GROUPS as unknown as string[], state.targetAgeGroup);
+  const creative = oneHot(CREATIVE_TYPES as unknown as string[], state.creativeType);
+  const platform = oneHot(PLATFORMS as unknown as string[], state.platform);
+
+  // Interests (multi-hot) → |INTEREST_VOCAB| dims
+  const interests = multiHot(INTEREST_VOCAB as unknown as string[], state.targetInterests);
+
+  // Historical + market (already 0..1-ish) → 4 dims
+  const hist = [
+    clamp(state.historicalCTR, 0, 1),
+    clamp(state.historicalCVR, 0, 1),
+    clamp(state.competitorActivity, 0, 1),
+    clamp(state.seasonality, 0, 1),
+  ];
+
+  return [
+    sinH, cosH, sinD, cosD,
+    ...budget,
+    ...age,
+    ...creative,
+    ...platform,
+    ...interests,
+    ...hist,
+  ];
+}
+
+// Example feature count S = 4 (time) + 1 (budget) + 10 (cats) + 7 (interests) + 4 (hist) = 26
+```
+
+Notes:
+- Determinism comes from fixed ordering of categories and the interest vocabulary.
+- If budgets vary widely, prefer log-scale or standardization per account.
+- You may replace cyclical encodings with one-hot if preferred; keep ordering documented.
+
+### Action Indexing (Repo Actions)
+
+Define a fixed, finite action grid and map each combination to an index. Keep the grid manageable (consider interest bundles) and deterministic.
+
+```ts
+// Discrete action grid (fixed ordering)
+const BUDGET_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5] as const;
+const AGE_ACTIONS = AGE_GROUPS; // reuse
+const CREATIVE_ACTIONS = CREATIVE_TYPES; // reuse
+const PLAT_ACTIONS = PLATFORMS; // actionable platforms
+const BID_STRATEGIES = ["CPC", "CPM", "CPA"] as const;
+
+// Optional: compress interests into a few canonical bundles
+const INTEREST_BUNDLES = [
+  [],
+  ["fashion"],
+  ["sports"],
+  ["tech"],
+] as const;
+
+type AdAction = {
+  budgetAdjustment: number;
+  targetAgeGroup: (typeof AGE_ACTIONS)[number];
+  targetInterests: string[];
+  creativeType: (typeof CREATIVE_ACTIONS)[number];
+  bidStrategy: (typeof BID_STRATEGIES)[number];
+  platform: (typeof PLAT_ACTIONS)[number];
+};
+
+// Build the actions list once; index = array position
+export const ACTIONS: AdAction[] = [];
+for (const b of BUDGET_STEPS)
+  for (const age of AGE_ACTIONS)
+    for (const cr of CREATIVE_ACTIONS)
+      for (const pf of PLAT_ACTIONS)
+        for (const bid of BID_STRATEGIES)
+          for (const ib of INTEREST_BUNDLES)
+            ACTIONS.push({
+              budgetAdjustment: b,
+              targetAgeGroup: age,
+              targetInterests: ib as string[],
+              creativeType: cr,
+              bidStrategy: bid,
+              platform: pf,
+            });
+
+export function actionToIndex(a: AdAction): number {
+  return ACTIONS.findIndex(
+    (x) =>
+      x.budgetAdjustment === a.budgetAdjustment &&
+      x.targetAgeGroup === a.targetAgeGroup &&
+      x.creativeType === a.creativeType &&
+      x.platform === a.platform &&
+      x.bidStrategy === a.bidStrategy &&
+      JSON.stringify(x.targetInterests) === JSON.stringify(a.targetInterests)
+  );
+}
+
+export function indexToAction(idx: number): AdAction {
+  return ACTIONS[idx];
+}
+```
+
+Result: a deterministic `stateVec` of size `S` (e.g., 26 above) and an output dimension `A = ACTIONS.length` with stable mapping `index ↔ action`.
 
 ## 3) Build the Q-Network (Torch.js)
 
@@ -140,4 +334,3 @@ class ReplayBuffer {
   sample(batchSize: number): Transition[] { /* ... */ }
 }
 ```
-
