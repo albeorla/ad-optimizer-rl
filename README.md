@@ -74,6 +74,13 @@ Episode 50 | Total Reward: 8.92 | Profit: $892
          ↑ 380% improvement through learning!
 ```
 
+## 📚 Documentation
+
+- API Integration Spec: `docs/api_spec.md`
+- Production Integration Guide: `docs/real_integration.md`
+- Low-Spend Rollout Guide: `docs/low_spend_rollout.md`
+- PoC Launch Checklist: `docs/poc_checklist.md`
+
 ### 🚀 Why Reinforcement Learning for Ad Optimization?
 
 Traditional rule-based ad optimization fails to capture complex, non-linear relationships between:
