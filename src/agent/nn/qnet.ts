@@ -255,11 +255,11 @@ export class QNetTorch implements QNet {
         const qsa = tf.sum(tf.mul(q, onehot), 1); // [B]
         const diff = tf.sub(qsa, y);
         const loss = tf.mean(tf.square(diff));
-        return loss;
+        return loss as unknown as import("@tensorflow/tfjs").Scalar;
       };
-      const loss = this.optimizer.minimize(trainFn, true) as import("@tensorflow/tfjs").Scalar;
-      lossVal = loss.arraySync() as number;
-      loss.dispose();
+      const out = this.optimizer.minimize(trainFn, true) as import("@tensorflow/tfjs").Scalar;
+      lossVal = out.arraySync() as number;
+      out.dispose();
     });
     return lossVal;
   }
