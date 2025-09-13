@@ -689,21 +689,21 @@ Store experiences and learn from random batches:
 │          Training Progress              │
 ├─────────────────────────────────────────┤
 │ Episode: 847/1000                       │
-│ ████████████████████░░░░ 84.7%         │
+│ ████████████████████░░░░ 84.7%          │
 │                                         │
 │ Current Reward: 7.23                    │
-│ Avg Reward (100 ep): 6.85              │
+│ Avg Reward (100 ep): 6.85               │
 │ Best Reward: 9.42                       │
 │                                         │
 │ Epsilon: 0.03                           │
 │ Learning Rate: 0.001                    │
 │                                         │
 │ Platform Distribution:                  │
-│   TikTok: 62%                          │
-│   Instagram: 38%                       │
+│   TikTok: 62%                           │
+│   Instagram: 38%                        │
 │                                         │
-│ Top Creative: UGC (34%)                │
-│ Top Age Group: 18-24 (41%)             │
+│ Top Creative: UGC (34%)                 │
+│ Top Age Group: 18-24 (41%)              │
 └─────────────────────────────────────────┘
 ```
 
