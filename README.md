@@ -95,6 +95,30 @@ If you are migrating from the current tabular approach in `src/agent/dqnAgent.ts
 
 See `docs/torchjs_dqn_refactor.md` for a concise, step-by-step guide.
 
+## 🤖 Agent Selection (Tabular vs NN)
+
+- Tabular baseline (Q-table):
+  - `npm start`
+- DQN neural agent (Torch.js-style over TF.js):
+  - `npm start -- --agent=nn`
+  - Useful flags: `--episodes`, `--batchSize`, `--gamma`, `--lr`, `--trainFreq`, `--targetSync`, `--replayCap`, `--epsilonStart`, `--epsilonMin`, `--epsilonDecay`
+
+Example:
+```
+npm start -- \
+  --agent=nn \
+  --episodes=200 \
+  --batchSize=64 \
+  --gamma=0.97 \
+  --lr=0.0005 \
+  --targetSync=500 \
+  --replayCap=20000
+```
+
+Notes
+- Backend: uses `@tensorflow/tfjs` by default for portability; consider `@tensorflow/tfjs-node` for faster training.
+- Encoding/Actions: see `src/agent/encoding.ts` for deterministic feature mapping and the action grid.
+
 ## 🧪 Real Runner Quick Start (Shadow/Pilot)
 
 Run the real-runner skeleton in shadow mode with a strict $30/day cap and peak hours (adapters to be implemented before going live):
