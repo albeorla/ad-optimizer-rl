@@ -101,10 +101,11 @@ export function actionToIndex(a: AdAction): number {
 }
 
 export function indexToAction(idx: number): AdAction {
-  return ACTIONS[idx];
+  if (ACTIONS.length === 0) throw new Error("ACTIONS not initialized");
+  const clamped = Math.max(0, Math.min(ACTIONS.length - 1, idx));
+  return ACTIONS[clamped]!;
 }
 
 // DQN-REFAC NOTE:
 // - These encoders provide the deterministic mapping required by the NN.
 // - Keep category orders/vocabulary stable across training and production.
-

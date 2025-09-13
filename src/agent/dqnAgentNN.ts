@@ -115,7 +115,7 @@ export class DQNAgentNN extends RLAgent {
       this.trainBatch();
       this.trainCounter++;
       if (this.trainCounter % this.hp.targetSync === 0) {
-        this.targetNet.copyFrom(this.qNet);
+        this.targetNet!.copyFrom(this.qNet!);
       }
     }
   }
