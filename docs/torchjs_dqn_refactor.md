@@ -334,3 +334,48 @@ class ReplayBuffer {
   sample(batchSize: number): Transition[] { /* ... */ }
 }
 ```
+
+---
+
+## Implementation Status (Repo)
+
+- Q-network: `QNetTorch` in `src/agent/nn/qnet.ts` provides a Torch.js-style interface backed by TensorFlow.js for now (MLP: 128→64→A, Adam, MSE).
+- Agent: `DQNAgentNN` in `src/agent/dqnAgentNN.ts` uses deterministic `encodeState` and stable `ACTIONS` from `src/agent/encoding.ts`, with experience replay, ε-decay, TD targets, and hard target sync.
+
+## Using the NN Agent
+
+- Select agent:
+  - CLI: `npm start -- --agent=nn`
+  - Env: `AGENT=nn npm start`
+
+- Useful flags (defaults):
+  - `--episodes (50)`, `--batchSize (32)`, `--gamma (0.95)`, `--lr (0.001)`
+  - `--trainFreq (1)`, `--targetSync (250)`, `--replayCap (5000)`
+  - `--epsilonStart (1.0)`, `--epsilonMin (0.05)`, `--epsilonDecay (0.995)`
+
+- Example:
+```
+npm start -- \
+  --agent=nn \
+  --episodes=200 \
+  --batchSize=64 \
+  --gamma=0.97 \
+  --lr=0.0005 \
+  --targetSync=500 \
+  --replayCap=20000
+```
+
+## Saving and Loading
+
+- Save: `await agent.save('model.json')` (when using `DQNAgentNN`).
+- Load: `await agent.load('model.json')` before training/inference.
+- Current serializer writes weights to JSON for portability (no native deps).
+
+## Backend Performance
+
+- Default: `@tensorflow/tfjs` pure JS backend (portable, slower). Consider `@tensorflow/tfjs-node` for faster training; if adopted, only the `QNet` implementation is affected.
+
+## Roadmap to Torch.js Backend
+
+- Swap `QNetTorch` internals to a Torch.js/LibTorch binding while keeping the same `QNet` interface.
+- Validate parity by comparing outputs/loss on fixed batches; keep save/load stable.
