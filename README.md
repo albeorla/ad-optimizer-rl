@@ -80,6 +80,7 @@ Episode 50 | Total Reward: 8.92 | Profit: $892
 - Production Integration Guide: `docs/real_integration.md`
 - Low-Spend Rollout Guide: `docs/low_spend_rollout.md`
 - PoC Launch Checklist: `docs/poc_checklist.md`
+ - Mathematical Primer: `docs/math_primer.md`
 
 ### 🚀 Why Reinforcement Learning for Ad Optimization?
 
@@ -1058,4 +1059,3 @@ furnished to do so, subject to the following conditions:
   - `docs/real_integration.md`
   - `docs/low_spend_rollout.md`
   - `docs/poc_checklist.md`
-
