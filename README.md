@@ -81,6 +81,19 @@ Episode 50 | Total Reward: 8.92 | Profit: $892
 - Low-Spend Rollout Guide: `docs/low_spend_rollout.md`
 - PoC Launch Checklist: `docs/poc_checklist.md`
 - Mathematical Primer: `docs/math_primer.md`
+- Torch.js DQN Refactor Tutorial: `docs/torchjs_dqn_refactor.md`
+
+### Q-Learning → DQN (Torch.js)
+
+If you are migrating from the current tabular approach in `src/agent/dqnAgent.ts` to a true DQN, start here:
+
+- Replace Q-table with a Q-network (state → Q-values).
+- Encode states and index actions consistently.
+- Add replay buffer and target network.
+- Train with TD targets and MSE loss.
+- Schedule ε and LR; persist and evaluate.
+
+See `docs/torchjs_dqn_refactor.md` for a concise, step-by-step guide.
 
 ## 🧪 Real Runner Quick Start (Shadow/Pilot)
 
