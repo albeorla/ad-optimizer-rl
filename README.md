@@ -80,7 +80,45 @@ Episode 50 | Total Reward: 8.92 | Profit: $892
 - Production Integration Guide: `docs/real_integration.md`
 - Low-Spend Rollout Guide: `docs/low_spend_rollout.md`
 - PoC Launch Checklist: `docs/poc_checklist.md`
- - Mathematical Primer: `docs/math_primer.md`
+- Mathematical Primer: `docs/math_primer.md`
+
+## 🧪 Real Runner Quick Start (Shadow/Pilot)
+
+Run the real-runner skeleton in shadow mode with a strict $30/day cap and peak hours (adapters to be implemented before going live):
+
+```
+npm run run:real -- \
+  --mode=shadow \
+  --daily-budget-target=30 \
+  --peak-hours=18-22 \
+  --delta-max=0.10 \
+  --lambda-spend=0.25 \
+  --lagrange-step=0.05 \
+  --canary-list="tiktok:ADSET_ID,instagram:ADSET_ID"
+```
+
+Then review logs and the PoC checklist before enabling `--mode=pilot`.
+
+## 📺 Training Progress Panel (ASCII)
+
+Example of a tidy console panel you can print during training:
+
+```
+┌────────────────────────────────────────────┐
+│           Training Progress (847/1000)     │
+├────────────────────────────────────────────┤
+│ Progress: ████████████████████░░░░░ 84.7%  │
+│ Current Reward:        7.23                 │
+│ Avg Reward (last 100): 6.85                 │
+│ Best Reward:           9.42                 │
+│ Epsilon:               0.03                 │
+│ Learning Rate:         0.001                │
+│ Platform:              TikTok 62% | IG 38%  │
+│ Top Creative:          UGC (34%)            │
+│ Top Age Group:         18-24 (41%)          │
+└────────────────────────────────────────────┘
+```
+
 
 ### 🚀 Why Reinforcement Learning for Ad Optimization?
 
