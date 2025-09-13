@@ -146,12 +146,15 @@ export class DQNAgentNN extends RLAgent {
     this.lastAvgLoss = this.qNet!.trainOnBatch(X, actionsIdx, y);
   }
 
-  save(filepath: string): void {
-    // Placeholder: just log; real impl should persist weights/optimizer state
-    console.log(`[DQNAgentNN] save() → ${filepath} (placeholder)`);
+  async save(filepath: string): Promise<void> {
+    if (this.qNet && (this.qNet as any).save) {
+      await (this.qNet as any).save(filepath);
+    }
   }
-  load(filepath: string): void {
-    console.log(`[DQNAgentNN] load() ← ${filepath} (placeholder)`);
+  async load(filepath: string): Promise<void> {
+    if (this.qNet && (this.qNet as any).load) {
+      await (this.qNet as any).load(filepath);
+    }
   }
 
   // Introspection helpers

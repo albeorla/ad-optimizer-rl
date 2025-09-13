@@ -206,20 +206,15 @@ export class QNetSimple implements QNet {
 // Torch.js-style implementation using TensorFlow.js backend.
 // Note: We depend on '@tensorflow/tfjs' to run in Node without native bindings.
 export class QNetTorch implements QNet {
-  private tf!: typeof import("@tensorflow/tfjs");
   private model!: import("@tensorflow/tfjs").LayersModel;
   private optimizer!: import("@tensorflow/tfjs").Optimizer;
-  private ready: Promise<void>;
 
   constructor(private inputSize: number, private actionCount: number, hidden1 = 128, hidden2 = 64, private lr = 1e-3) {
-    this.ready = this.init(hidden1, hidden2);
+    this.init(hidden1, hidden2);
   }
 
-  private async init(hidden1: number, hidden2: number): Promise<void> {
-    const tf = await import("@tensorflow/tfjs");
-    // Optional: silence TFJS warnings
-    // (tf as any).env().set('DEBUG', false);
-    this.tf = tf;
+  private init(hidden1: number, hidden2: number): void {
+    const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
     const model = tf.sequential();
     model.add(tf.layers.dense({ units: hidden1, activation: 'relu', inputShape: [this.inputSize] }));
     model.add(tf.layers.dense({ units: hidden2, activation: 'relu' }));
@@ -232,7 +227,8 @@ export class QNetTorch implements QNet {
   getActionCount(): number { return this.actionCount; }
 
   forward(batchStates: number[][]): number[][] {
-    const tf = this.tf; if (!tf || !this.model) throw new Error("QNetTorch not initialized");
+    const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+    if (!this.model) throw new Error("QNetTorch not initialized");
     return tf.tidy(() => {
       const xs = tf.tensor2d(batchStates, [batchStates.length, this.inputSize]);
       const out = this.model.predict(xs) as import("@tensorflow/tfjs").Tensor2D;
@@ -242,7 +238,8 @@ export class QNetTorch implements QNet {
   }
 
   trainOnBatch(states: number[][], actionsIdx: number[], targets: number[]): number {
-    const tf = this.tf; if (!tf || !this.model || !this.optimizer) throw new Error("QNetTorch not initialized");
+    const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+    if (!this.model || !this.optimizer) throw new Error("QNetTorch not initialized");
     const B = states.length;
     let lossVal = 0;
     tf.tidy(() => {
@@ -266,8 +263,8 @@ export class QNetTorch implements QNet {
 
   copyFrom(source: QNet): void {
     // Hard sync: copy weights from source if it is also QNetTorch/QNetSimple
-    if ((source as any).model && this.model && this.tf) {
-      const tf = this.tf;
+    if ((source as any).model && this.model) {
+      const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
       const srcWeights = (source as any).model.getWeights() as import("@tensorflow/tfjs").Tensor[];
       const clones = srcWeights.map((w) => tf.clone(w));
       this.model.setWeights(clones);
@@ -279,7 +276,8 @@ export class QNetTorch implements QNet {
 
   async save(path: string): Promise<void> {
     // Save weight arrays to JSON for portability without tfjs-node file I/O
-    const tf = this.tf; if (!tf || !this.model) throw new Error("QNetTorch not initialized");
+    const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+    if (!this.model) throw new Error("QNetTorch not initialized");
     const fs = await import('fs');
     const weights = this.model.getWeights();
     const serial = await Promise.all(weights.map(async (t) => ({ shape: t.shape, data: Array.from(await t.data()) })));
@@ -288,7 +286,8 @@ export class QNetTorch implements QNet {
   }
 
   async load(path: string): Promise<void> {
-    const tf = this.tf; if (!tf || !this.model) throw new Error("QNetTorch not initialized");
+    const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+    if (!this.model) throw new Error("QNetTorch not initialized");
     const fs = await import('fs');
     const txt = await fs.promises.readFile(path, 'utf8');
     const obj = JSON.parse(txt) as { weights: { shape: number[]; data: number[] }[] };
