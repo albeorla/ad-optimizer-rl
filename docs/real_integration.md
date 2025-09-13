@@ -114,6 +114,9 @@ Implement a featurizer: `src/features/featurizer.ts` (new) that queries DB and p
 
 Recommended canonical reward source: Shopify revenue (joined to adsets), not platform‑reported conversions.
 - Profit = revenue − spend per adset/hour.
+- Cost-sensitive objective: add a spend penalty to minimize spend while maximizing profit, for example:
+  - r = profit − λ_spend · adSpend, with λ_spend configurable (start 0.1–0.3).
+  - Constrained variant: maintain a daily spend target and update λ via dual ascent: λ ← max(0, λ + η · (spend − target)/target).
 - Bonuses: ROAS tiers (>2, >3, >4), small per‑conversion bonus.
 - Penalties: high spend with poor ROAS, budget spikes.
 - Handle attribution lag: optionally distribute a fraction of a purchase backward across previous k hours.
@@ -144,6 +147,10 @@ Create `src/environment/realEnvironment.ts` that implements the same step API us
 - Pause conditions: if ROAS below threshold for N hours, stop changes and alert.
 - Canary: start with 5–10% of budget managed by RL; expand on success.
 - Kill switch: immediate rollback to last known budgets.
+
+Cost-aware safety:
+- Daily budget target per account/platform; clamp hourly deltas tighter as you approach target.
+- No-sales freeze: if conversions = 0 for N hours or trailing ROAS < threshold, allow only minimum floors (or switch to shadow mode).
 
 Implement a guardrail module: `src/execution/guardrails.ts`.
 
@@ -229,4 +236,3 @@ Wire these into constructors of adapters/services.
 ---
 
 When ready, I can scaffold the real adapters and a shadow‑mode runner with typed stubs, rate-limiters, and retry/backoff, wired behind feature flags so you can flip between simulator and real mode.
-
