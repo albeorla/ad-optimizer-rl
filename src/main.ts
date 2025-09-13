@@ -1,4 +1,5 @@
 import { DQNAgent } from "./agent/dqnAgent";
+import { DQNAgentNN } from "./agent/dqnAgentNN";
 import { AdEnvironmentSimulator } from "./environment/simulator";
 import { TrainingPipeline } from "./training/pipeline";
 import { ConsoleLogger } from "./observers/consoleLogger";
@@ -24,8 +25,34 @@ async function main() {
   const epsilonDecay = Number(getArg("epsilonDecay") ?? process.env.EPS_DECAY ?? 0.999);
   const lrDecay = Number(getArg("lrDecay") ?? process.env.LR_DECAY ?? 0.99);
   const shaping = Number(getArg("shaping") ?? process.env.SHAPING ?? 1);
+  const agentKind = (getArg("agent") ?? process.env.AGENT ?? "tabular").toLowerCase();
 
-  const agent = new DQNAgent({ epsilonDecay, lrDecay });
+  // Optional NN params (only used if agent=nn)
+  const nnOpts = {
+    epsilonStart: Number(getArg("epsilonStart") ?? process.env.EPS_START ?? 1.0),
+    epsilonMin: Number(getArg("epsilonMin") ?? process.env.EPS_MIN ?? 0.05),
+    epsilonDecay: Number(getArg("epsilonDecay") ?? process.env.EPS_DECAY ?? 0.995),
+    lr: Number(getArg("lr") ?? process.env.LR ?? 1e-3),
+    gamma: Number(getArg("gamma") ?? process.env.GAMMA ?? 0.95),
+    batchSize: Number(getArg("batchSize") ?? process.env.BATCH_SIZE ?? 32),
+    trainFreq: Number(getArg("trainFreq") ?? process.env.TRAIN_FREQ ?? 1),
+    targetSync: Number(getArg("targetSync") ?? process.env.TARGET_SYNC ?? 250),
+    replayCapacity: Number(getArg("replayCap") ?? process.env.REPLAY_CAP ?? 5000),
+  } as const;
+
+  const agent = agentKind === "nn"
+    ? new DQNAgentNN({
+        epsilonStart: nnOpts.epsilonStart,
+        epsilonMin: nnOpts.epsilonMin,
+        epsilonDecay: nnOpts.epsilonDecay,
+        lr: nnOpts.lr,
+        gamma: nnOpts.gamma,
+        batchSize: nnOpts.batchSize,
+        trainFreq: nnOpts.trainFreq,
+        targetSync: nnOpts.targetSync,
+        replayCapacity: nnOpts.replayCapacity,
+      })
+    : new DQNAgent({ epsilonDecay, lrDecay });
   const environment = new AdEnvironmentSimulator({ shapingStrength: shaping });
   const pipeline = new TrainingPipeline(agent, environment);
 
@@ -35,8 +62,13 @@ async function main() {
   pipeline.addObserver(metricsCollector);
   pipeline.addObserver(new DiagnosticLogger());
 
-  // Warm-start seeding by default using environment's initial state
-  agent.seedHeuristics(environment.reset());
+  // Warm-start seeding by default using environment's initial state (tabular only)
+  if ((agent as any).seedHeuristics) {
+    (agent as any).seedHeuristics(environment.reset());
+  } else {
+    // Ensure we reset environment once for a fresh starting state
+    environment.reset();
+  }
   await pipeline.train(episodes);
   metricsCollector.printSummary();
   agent.save("final_model.json");

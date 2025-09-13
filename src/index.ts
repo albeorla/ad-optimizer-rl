@@ -6,6 +6,7 @@ export { MockInstagramAdsAPI } from "./platforms/mockInstagram";
 export { AdPlatformFactory } from "./platforms/factory";
 export { RLAgent } from "./agent/base";
 export { DQNAgent } from "./agent/dqnAgent";
+export { DQNAgentNN } from "./agent/dqnAgentNN";
 export { AdEnvironmentSimulator } from "./environment/simulator";
 export { TrainingPipeline } from "./training/pipeline";
 export { ConsoleLogger } from "./observers/consoleLogger";
