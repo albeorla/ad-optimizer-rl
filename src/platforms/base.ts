@@ -9,4 +9,6 @@ export abstract class AdPlatformAPI {
     action: AdAction
   ): RewardMetrics;
 }
-
+// DQN-REFAC TODO:
+// - No changes for DQN itself; ensure real adapters produce state fields the encoder expects.
+// - Consider adding a method to return feature views for parity between sim and real.

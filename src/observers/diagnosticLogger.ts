@@ -1,4 +1,7 @@
 import { TrainingObserver } from "./types";
+// DQN-REFAC TODO:
+// - Extend diagnostics to print avgLoss, replay size, target sync cadence.
+// - Replace Q-Table metrics with NN metrics when DQN is enabled.
 
 export class DiagnosticLogger implements TrainingObserver {
   onEpisodeComplete(episode: number, totalReward: number, metrics: any): void {
@@ -17,4 +20,3 @@ export class DiagnosticLogger implements TrainingObserver {
     console.log(`  - Total Reward: ${totalReward.toFixed(2)}`);
   }
 }
-

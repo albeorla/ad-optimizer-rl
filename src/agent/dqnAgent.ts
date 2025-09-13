@@ -1,5 +1,11 @@
 import { AdAction, AdEnvironmentState } from "../types";
 import { RLAgent } from "./base";
+// DQN-REFAC TODO:
+// - Replace Q-table with Torch.js Q-network (+ target network) that outputs Q(s, ·).
+// - Move state/action encoding to `src/agent/encoding.ts` (see docs/torchjs_dqn_refactor.md).
+// - Implement replay buffer with (s, aIdx, r, s', done) and a `trainStep` minimizing TD error.
+// - Add target sync every N steps, epsilon/LR schedules, gradient clipping.
+// - Implement save/load of network weights and optimizer state; keep JSON manifest.
 
 export class DQNAgent extends RLAgent {
   private qTable: Map<string, Map<string, number>> = new Map();

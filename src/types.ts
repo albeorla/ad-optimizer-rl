@@ -1,4 +1,7 @@
 // Core interfaces & types
+// DQN-REFAC TODO:
+// - Keep categorical domains stable (age groups, creative types, platforms) for deterministic encoding.
+// - If adding features, update `docs/torchjs_dqn_refactor.md` and `src/agent/encoding.ts`.
 
 export interface AdEnvironmentState {
   dayOfWeek: number; // 0-6 (Monday-Sunday)
@@ -30,4 +33,3 @@ export interface RewardMetrics {
   roas: number; // Return on Ad Spend
   conversions: number;
 }
-

@@ -1,5 +1,8 @@
 import { AdAction, AdEnvironmentState, RewardMetrics } from "../types";
 import { AdPlatformAPI } from "./base";
+// DQN-REFAC TODO:
+// - No model changes; keep behavior complementary to TikTok for diversity in training.
+// - Revisit shapingStrength to calibrate reward scales if needed.
 
 export class MockInstagramAdsAPI extends AdPlatformAPI {
   private shapingStrength: number;

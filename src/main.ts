@@ -4,6 +4,10 @@ import { TrainingPipeline } from "./training/pipeline";
 import { ConsoleLogger } from "./observers/consoleLogger";
 import { MetricsCollector } from "./observers/metricsCollector";
 import { DiagnosticLogger } from "./observers/diagnosticLogger";
+// DQN-REFAC TODO:
+// - Add CLI flags/env for DQN hyperparams: batchSize, lr, gamma, trainFreq, targetSync, replayCap.
+// - Wire NN-based DQNAgent behind a flag or separate class; keep tabular for baseline comparisons.
+// - Surface and log NN metrics (loss, epsilon, lr) through observers.
 
 async function main() {
   console.log("=".repeat(60));

@@ -1,4 +1,8 @@
 import { argv } from "process";
+// DQN-REFAC TODO:
+// - Real runner will use the same encodeState() as simulator; ensure adapters produce matching fields.
+// - Gate NN agent via flag; in shadow mode, log would-apply actions with NN metrics.
+// - Add guardrails application right after action selection (before writes).
 
 function getArg(name: string, fallback?: string) {
   const p = argv.slice(2).find((a) => a.startsWith(`--${name}=`));
@@ -27,4 +31,3 @@ if (require.main === module) {
 }
 
 export { main };
-

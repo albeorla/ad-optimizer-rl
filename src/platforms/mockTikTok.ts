@@ -1,5 +1,8 @@
 import { AdAction, AdEnvironmentState, RewardMetrics } from "../types";
 import { AdPlatformAPI } from "./base";
+// DQN-REFAC TODO:
+// - No model changes; simulator should continue to produce realistic signals.
+// - Keep demographic/creative/time sensitivities consistent with docs and encoder.
 
 export class MockTikTokAdsAPI extends AdPlatformAPI {
   private campaigns: Map<string, any> = new Map();

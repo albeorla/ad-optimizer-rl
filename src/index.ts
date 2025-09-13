@@ -11,3 +11,5 @@ export { TrainingPipeline } from "./training/pipeline";
 export { ConsoleLogger } from "./observers/consoleLogger";
 export { MetricsCollector } from "./observers/metricsCollector";
 export { DiagnosticLogger } from "./observers/diagnosticLogger";
+// DQN-REFAC TODO:
+// - When NN agent lands, consider exporting: encodeState/ACTIONS (from agent/encoding), QNet types.

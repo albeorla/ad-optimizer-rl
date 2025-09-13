@@ -1,4 +1,8 @@
 import { AdAction, AdEnvironmentState } from "../types";
+// DQN-REFAC TODO:
+// - Base interface is sufficient; no signature changes required.
+// - Subclasses will shift from table updates to neural TD training.
+// - Consider adding optional hooks: onBatchTrained(loss), onTargetSync().
 
 export abstract class RLAgent {
   protected learningRate: number = 0.01;

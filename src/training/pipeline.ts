@@ -1,6 +1,10 @@
 import { RLAgent } from "../agent/base";
 import { AdEnvironmentSimulator } from "../environment/simulator";
 import { TrainingObserver } from "../observers/types";
+// DQN-REFAC TODO:
+// - For NN training, consider step-level train frequency (e.g., every N env steps) and warmup.
+// - Surface per-batch loss, TD error stats to observers (extend metrics payload accordingly).
+// - Add periodic target network sync signal; optionally evaluation episodes with epsilon=0.
 
 export class TrainingPipeline {
   private agent: RLAgent;

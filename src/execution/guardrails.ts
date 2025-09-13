@@ -19,3 +19,6 @@ export interface GuardrailResult {
   applied: boolean;
   reasons: string[];
 }
+// DQN-REFAC TODO:
+// - Guardrails apply post-decision; ensure DQN-selected actions are clamped here.
+// - Consider exposing a function to score/clamp budget deltas given policy outputs.

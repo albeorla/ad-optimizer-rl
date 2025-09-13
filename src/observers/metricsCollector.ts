@@ -1,4 +1,7 @@
 import { TrainingObserver } from "./types";
+// DQN-REFAC TODO:
+// - Track batch-level stats: avgLoss, maxTD, qValue stats, replay size, targetSync count.
+// - Expose rolling windows for dashboarding and anomaly detection.
 
 export class MetricsCollector implements TrainingObserver {
   private history: Array<{
@@ -31,4 +34,3 @@ export class MetricsCollector implements TrainingObserver {
     console.log(`Total Episodes: ${this.history.length}`);
   }
 }
-

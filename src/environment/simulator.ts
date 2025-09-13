@@ -2,6 +2,10 @@ import { AdAction, AdEnvironmentState } from "../types";
 import { MockTikTokAdsAPI } from "../platforms/mockTikTok";
 import { MockInstagramAdsAPI } from "../platforms/mockInstagram";
 import { AdPlatformAPI } from "../platforms/base";
+// DQN-REFAC TODO:
+// - Keep state fields stable and documented; encoder depends on deterministic categories.
+// - If you add/rename features, update `src/agent/encoding.ts` and docs accordingly.
+// - Consider exposing a 'feature view' for real adapters to ensure parity with simulator.
 
 export class AdEnvironmentSimulator {
   private platforms: Map<string, AdPlatformAPI>;
