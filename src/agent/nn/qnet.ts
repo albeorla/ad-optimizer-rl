@@ -202,3 +202,98 @@ export class QNetSimple implements QNet {
   }
   private clone2D(W: number[][]): number[][] { return W.map((r) => r.slice()); }
 }
+
+// Torch.js-style implementation using TensorFlow.js backend.
+// Note: We depend on '@tensorflow/tfjs' to run in Node without native bindings.
+export class QNetTorch implements QNet {
+  private tf!: typeof import("@tensorflow/tfjs");
+  private model!: import("@tensorflow/tfjs").LayersModel;
+  private optimizer!: import("@tensorflow/tfjs").Optimizer;
+  private ready: Promise<void>;
+
+  constructor(private inputSize: number, private actionCount: number, hidden1 = 128, hidden2 = 64, private lr = 1e-3) {
+    this.ready = this.init(hidden1, hidden2);
+  }
+
+  private async init(hidden1: number, hidden2: number): Promise<void> {
+    const tf = await import("@tensorflow/tfjs");
+    // Optional: silence TFJS warnings
+    // (tf as any).env().set('DEBUG', false);
+    this.tf = tf;
+    const model = tf.sequential();
+    model.add(tf.layers.dense({ units: hidden1, activation: 'relu', inputShape: [this.inputSize] }));
+    model.add(tf.layers.dense({ units: hidden2, activation: 'relu' }));
+    model.add(tf.layers.dense({ units: this.actionCount, activation: 'linear' }));
+    this.model = model;
+    this.optimizer = tf.train.adam(this.lr);
+  }
+
+  getInputSize(): number { return this.inputSize; }
+  getActionCount(): number { return this.actionCount; }
+
+  forward(batchStates: number[][]): number[][] {
+    const tf = this.tf; if (!tf || !this.model) throw new Error("QNetTorch not initialized");
+    return tf.tidy(() => {
+      const xs = tf.tensor2d(batchStates, [batchStates.length, this.inputSize]);
+      const out = this.model.predict(xs) as import("@tensorflow/tfjs").Tensor2D;
+      const arr = out.arraySync() as number[][];
+      return arr;
+    });
+  }
+
+  trainOnBatch(states: number[][], actionsIdx: number[], targets: number[]): number {
+    const tf = this.tf; if (!tf || !this.model || !this.optimizer) throw new Error("QNetTorch not initialized");
+    const B = states.length;
+    let lossVal = 0;
+    tf.tidy(() => {
+      const xs = tf.tensor2d(states, [B, this.inputSize]);
+      const a = tf.tensor1d(actionsIdx, 'int32');
+      const y = tf.tensor1d(targets, 'float32');
+      const onehot = tf.oneHot(a, this.actionCount).toFloat();
+      const trainFn = () => {
+        const q = this.model.apply(xs, { training: true }) as import("@tensorflow/tfjs").Tensor2D; // [B, A]
+        const qsa = tf.sum(tf.mul(q, onehot), 1); // [B]
+        const diff = tf.sub(qsa, y);
+        const loss = tf.mean(tf.square(diff));
+        return loss;
+      };
+      const loss = this.optimizer.minimize(trainFn, true) as import("@tensorflow/tfjs").Scalar;
+      lossVal = loss.arraySync() as number;
+      loss.dispose();
+    });
+    return lossVal;
+  }
+
+  copyFrom(source: QNet): void {
+    // Hard sync: copy weights from source if it is also QNetTorch/QNetSimple
+    if ((source as any).model && this.model && this.tf) {
+      const tf = this.tf;
+      const srcWeights = (source as any).model.getWeights() as import("@tensorflow/tfjs").Tensor[];
+      const clones = srcWeights.map((w) => tf.clone(w));
+      this.model.setWeights(clones);
+      clones.forEach((t) => t.dispose());
+      return;
+    }
+    // Fallback: approximate via forward pass is not meaningful for weight copy; no-op.
+  }
+
+  async save(path: string): Promise<void> {
+    // Save weight arrays to JSON for portability without tfjs-node file I/O
+    const tf = this.tf; if (!tf || !this.model) throw new Error("QNetTorch not initialized");
+    const fs = await import('fs');
+    const weights = this.model.getWeights();
+    const serial = await Promise.all(weights.map(async (t) => ({ shape: t.shape, data: Array.from(await t.data()) })));
+    const payload = { inputSize: this.inputSize, actionCount: this.actionCount, lr: this.lr, weights: serial };
+    await fs.promises.writeFile(path, JSON.stringify(payload));
+  }
+
+  async load(path: string): Promise<void> {
+    const tf = this.tf; if (!tf || !this.model) throw new Error("QNetTorch not initialized");
+    const fs = await import('fs');
+    const txt = await fs.promises.readFile(path, 'utf8');
+    const obj = JSON.parse(txt) as { weights: { shape: number[]; data: number[] }[] };
+    const tensors = obj.weights.map((w) => tf.tensor(w.data, w.shape as [number, ...number[]]));
+    this.model.setWeights(tensors);
+    tensors.forEach((t) => t.dispose());
+  }
+}

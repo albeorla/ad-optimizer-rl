@@ -1,7 +1,7 @@
 import { AdAction, AdEnvironmentState } from "../types";
 import { RLAgent } from "./base";
 import { ACTIONS, encodeState, actionToIndex, indexToAction } from "./encoding";
-import { DQNHyperparams, QNet, QNetSimple } from "./nn/qnet";
+import { DQNHyperparams, QNet, QNetTorch } from "./nn/qnet";
 import { ReplayBuffer, Transition } from "./replay";
 
 type Vec = ReadonlyArray<number> & number[]; // helpful alias
@@ -60,8 +60,8 @@ export class DQNAgentNN extends RLAgent {
   private ensureInitialized(inputSize: number): void {
     if (this.qNet && this.targetNet) return;
     const A = ACTIONS.length;
-    this.qNet = new QNetSimple(inputSize, A, 128, 64, this.learningRate);
-    this.targetNet = new QNetSimple(inputSize, A, 128, 64, this.learningRate);
+    this.qNet = new QNetTorch(inputSize, A, 128, 64, this.learningRate);
+    this.targetNet = new QNetTorch(inputSize, A, 128, 64, this.learningRate);
     this.targetNet.copyFrom(this.qNet);
   }
 
