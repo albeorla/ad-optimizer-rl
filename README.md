@@ -104,10 +104,10 @@ Then review logs and the PoC checklist before enabling `--mode=pilot`.
 Example of a tidy console panel you can print during training:
 
 ```
-┌────────────────────────────────────────────┐
-│           Training Progress (847/1000)     │
-├────────────────────────────────────────────┤
-│ Progress: ████████████████████░░░░░ 84.7%  │
+┌─────────────────────────────────────────────┐
+│           Training Progress (847/1000)      │
+├─────────────────────────────────────────────┤
+│ Progress: ████████████████████░░░░░ 84.7%   │
 │ Current Reward:        7.23                 │
 │ Avg Reward (last 100): 6.85                 │
 │ Best Reward:           9.42                 │
@@ -116,7 +116,7 @@ Example of a tidy console panel you can print during training:
 │ Platform:              TikTok 62% | IG 38%  │
 │ Top Creative:          UGC (34%)            │
 │ Top Age Group:         18-24 (41%)          │
-└────────────────────────────────────────────┘
+└─────────────────────────────────────────────┘
 ```
 
 
