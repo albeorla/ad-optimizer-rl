@@ -62,7 +62,8 @@ export function encodeState(state: AdEnvironmentState): number[] {
 }
 
 // Discrete action grid (keep ordering stable)
-export const BUDGET_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5] as const;
+// Tighter budget multipliers for small-budget regimes (e.g., ~$30/day)
+export const BUDGET_STEPS = [0.95, 1.0, 1.05] as const;
 export const BID_STRATEGIES = ["CPC", "CPM", "CPA"] as const;
 // Optional: reduce interests to canonical bundles to limit action space
 export const INTEREST_BUNDLES: ReadonlyArray<ReadonlyArray<string>> = [
@@ -72,11 +73,25 @@ export const INTEREST_BUNDLES: ReadonlyArray<ReadonlyArray<string>> = [
   ["tech"],
 ];
 
+// Optionally narrow action space via environment variables
+const ENV_PLATFORMS = (process.env.ALLOWED_PLATFORMS || "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter((s) => s === "tiktok" || s === "instagram");
+const DISABLE_IG = (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
+const selectedPlatforms = (ENV_PLATFORMS.length ? ENV_PLATFORMS : Array.from(PLATFORMS)).filter(
+  (p) => (DISABLE_IG ? p !== "instagram" : true)
+);
+const LOCKED_CREATIVE = process.env.LOCKED_CREATIVE_TYPE;
+const selectedCreatives = LOCKED_CREATIVE && (CREATIVE_TYPES as readonly string[]).includes(LOCKED_CREATIVE)
+  ? [LOCKED_CREATIVE]
+  : Array.from(CREATIVE_TYPES);
+
 export const ACTIONS: AdAction[] = [];
 for (const b of BUDGET_STEPS)
   for (const age of AGE_GROUPS)
-    for (const cr of CREATIVE_TYPES)
-      for (const pf of PLATFORMS)
+    for (const cr of selectedCreatives as any)
+      for (const pf of selectedPlatforms as any)
         for (const bid of BID_STRATEGIES)
           for (const ib of INTEREST_BUNDLES)
             ACTIONS.push({

@@ -7,10 +7,14 @@ import { AdPlatformAPI } from "./base";
 export class MockTikTokAdsAPI extends AdPlatformAPI {
   private campaigns: Map<string, any> = new Map();
   private shapingStrength: number;
+  private productPrice: number;
+  private cogsPerUnit: number;
 
-  constructor(shapingStrength: number = 1) {
+  constructor(shapingStrength: number = 1, productPrice: number = 29.99, cogsPerUnit: number = 15.0) {
     super();
     this.shapingStrength = shapingStrength;
+    this.productPrice = productPrice;
+    this.cogsPerUnit = cogsPerUnit;
   }
 
   async updateCampaign(campaignId: string, params: any): Promise<any> {
@@ -56,20 +60,27 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
     // Calculate realistic metrics
     const effectiveImpressions = baseImpressions * performanceMultiplier;
     const ctr = 0.02 * performanceMultiplier; // 2% base CTR
-    const clicks = Math.floor(effectiveImpressions * ctr);
+    const clicks = effectiveImpressions * ctr; // expected clicks (not floored)
     const conversionRate = 0.03 * performanceMultiplier; // 3% base CVR
-    const conversions = Math.floor(clicks * conversionRate);
-    const revenueNominal = conversions * 29.99;
+    const conversions = clicks * conversionRate; // expected conversions
+    const revenueNominal = conversions * this.productPrice;
     const adSpend = budgetAmount; // actual spend equals budget
     const variance = 0.9 + Math.random() * 0.2; // ±10%
     const revenue = revenueNominal * variance;
+    const units = conversions * variance;
+    const cogs = units * this.cogsPerUnit; // expected units * COGS
+    const grossMargin = revenue - cogs;
+    const marginRoas = adSpend > 0 ? grossMargin / adSpend : 0;
 
     return {
       revenue,
       adSpend,
-      profit: revenue - adSpend,
+      profit: revenue - adSpend - cogs,
       roas: adSpend > 0 ? revenue / adSpend : 0,
-      conversions: Math.floor(conversions * variance),
+      cogs,
+      grossMargin,
+      marginRoas,
+      conversions: units,
     };
   }
 

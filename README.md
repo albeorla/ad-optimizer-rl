@@ -496,7 +496,49 @@ METRICS_EXPORT_PATH=./metrics
 MAX_DAILY_BUDGET=10000
 MIN_ROAS_THRESHOLD=1.0
 MAX_BUDGET_CHANGE_PERCENT=50
+
+# Real-world Constraints
+# Pricing and costs
+TSHIRT_PRICE=29.99           # or PRODUCT_PRICE
+PRINTFUL_COGS=15.00          # or COGS_PER_UNIT
+
+# Platform availability
+ALLOWED_PLATFORMS=tiktok     # comma-separated: e.g., "tiktok,instagram"
+DISABLE_INSTAGRAM=true       # optional convenience flag
+
+# Creative constraints
+LOCKED_CREATIVE_TYPE=ugc     # lock to a single creative type
+
+# Budgeting
+DAILY_BUDGET_TARGET=30       # shapes hourly spend penalty in reward
 ```
+
+These environment variables adjust the simulator to better reflect real operating constraints:
+- TSHIRT_PRICE/PRODUCT_PRICE: Revenue per unit sold.
+- PRINTFUL_COGS/COGS_PER_UNIT: Cost of goods per unit (used to compute net profit).
+- ALLOWED_PLATFORMS or DISABLE_INSTAGRAM: Restrict simulator to platforms you can actually run.
+- LOCKED_CREATIVE_TYPE: Force a single creative type when you only have one asset.
+- DAILY_BUDGET_TARGET: Sets the hourly cap used for overspend penalties in reward shaping.
+
+## 🕶️ Shadow-Mode Training (Real Data Scaffolding)
+
+This repo now includes scaffolding to run a shadow-mode loop that composes real TikTok ad spend and Shopify revenue while never writing changes back to platforms.
+
+- Real Shopify data source: `src/datasources/shopify.ts` (stubbed)
+- Real TikTok API adapter: `src/platforms/realTikTok.ts` (stubbed)
+- Real shadow environment: `src/environment/realShadow.ts`
+- Runner: `src/run/shadowTraining.ts`
+
+Usage:
+- Set env vars for constraints and credentials (if wiring real APIs):
+  - `PRINTFUL_COGS=15`, `TSHIRT_PRICE=29.99`, `DAILY_BUDGET_TARGET=30`
+  - `SHOPIFY_API_KEY=...`, `SHOPIFY_STORE_DOMAIN=...`
+  - `TIKTOK_API_KEY=...`
+- Run: `npm run build && node dist/run/shadowTraining.js --episodes=50`
+
+Notes:
+- The stubs return zero metrics by default; replace TODOs with real HTTP calls.
+- Reward shaping is margin-based ROAS: `(revenue - COGS) / adSpend` thresholds drive bonuses, not gross ROAS.
 
 ### Configuration File (config.json)
 

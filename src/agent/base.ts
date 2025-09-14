@@ -18,8 +18,8 @@ export abstract class RLAgent {
     reward: number,
     nextState: AdEnvironmentState
   ): void;
-  abstract save(filepath: string): void;
-  abstract load(filepath: string): void;
+  abstract save(filepath: string): void | Promise<void>;
+  abstract load(filepath: string): void | Promise<void>;
 
   // Optional lifecycle hook: override in subclasses if needed
   onEpisodeEnd(_episode: number): void {}

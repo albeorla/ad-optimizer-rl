@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start:prod": "npm run build && node dist/main.js",
     "run:real": "ts-node src/run/real.ts",
+    "run:shadow": "ts-node src/run/shadowTraining.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

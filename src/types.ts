@@ -29,7 +29,10 @@ export interface AdAction {
 export interface RewardMetrics {
   revenue: number;
   adSpend: number;
-  profit: number;
-  roas: number; // Return on Ad Spend
+  profit: number; // revenue - adSpend - cogs
+  roas: number; // Return on Ad Spend (revenue / adSpend)
+  cogs?: number; // cost of goods sold (optional in older sims)
+  grossMargin?: number; // revenue - cogs
+  marginRoas?: number; // (revenue - cogs) / adSpend
   conversions: number;
 }

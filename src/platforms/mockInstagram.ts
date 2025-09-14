@@ -6,10 +6,14 @@ import { AdPlatformAPI } from "./base";
 
 export class MockInstagramAdsAPI extends AdPlatformAPI {
   private shapingStrength: number;
+  private productPrice: number;
+  private cogsPerUnit: number;
 
-  constructor(shapingStrength: number = 1) {
+  constructor(shapingStrength: number = 1, productPrice: number = 29.99, cogsPerUnit: number = 15.0) {
     super();
     this.shapingStrength = shapingStrength;
+    this.productPrice = productPrice;
+    this.cogsPerUnit = cogsPerUnit;
   }
   async updateCampaign(campaignId: string, params: any): Promise<any> {
     return { success: true, campaignId, platform: "instagram" };
@@ -43,20 +47,27 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
 
     const effectiveImpressions = baseImpressions * performanceMultiplier;
     const ctr = 0.022 * performanceMultiplier; // IG CTR
-    const clicks = Math.floor(effectiveImpressions * ctr);
+    const clicks = effectiveImpressions * ctr; // expected clicks (not floored)
     const conversionRate = 0.032 * performanceMultiplier; // IG CVR
-    const conversions = Math.floor(clicks * conversionRate);
+    const conversions = clicks * conversionRate; // expected conversions
     const adSpend = budgetAmount;
     const variance = 0.9 + Math.random() * 0.2; // ±10%
-    const revenueNominal = conversions * 29.99;
+    const revenueNominal = conversions * this.productPrice;
     const revenue = revenueNominal * variance;
+    const units = conversions * variance;
+    const cogs = units * this.cogsPerUnit;
+    const grossMargin = revenue - cogs;
+    const marginRoas = adSpend > 0 ? grossMargin / adSpend : 0;
 
     return {
       revenue,
       adSpend,
-      profit: revenue - adSpend,
+      profit: revenue - adSpend - cogs,
       roas: adSpend > 0 ? revenue / adSpend : 0,
-      conversions: Math.floor(conversions * variance),
+      cogs,
+      grossMargin,
+      marginRoas,
+      conversions: units,
     };
   }
 

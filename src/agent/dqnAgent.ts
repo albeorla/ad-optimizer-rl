@@ -45,16 +45,28 @@ export class DQNAgent extends RLAgent {
 
   private generateActionSpace(): AdAction[] {
     const actions: AdAction[] = [];
-    const budgetAdjustments = [0.5, 0.75, 1.0, 1.25, 1.5];
+    // Tighter budget multipliers for small-budget regime alignment
+    const budgetAdjustments = [0.95, 1.0, 1.05];
     const ageGroups = ["18-24", "25-34", "35-44", "45+"];
-    const creativeTypes = ["lifestyle", "product", "discount", "ugc"];
+    let creativeTypes = ["lifestyle", "product", "discount", "ugc"] as const;
+    const lockedCreative = process.env.LOCKED_CREATIVE_TYPE;
+    if (lockedCreative && (creativeTypes as readonly string[]).includes(lockedCreative)) {
+      creativeTypes = [lockedCreative] as any;
+    }
     const bidStrategies: Array<"CPC" | "CPM" | "CPA"> = ["CPC", "CPM", "CPA"];
-    const platforms: Array<"tiktok" | "instagram" | "shopify"> = ["tiktok", "instagram"];
+    let platforms: Array<"tiktok" | "instagram" | "shopify"> = ["tiktok", "instagram"];
+    const envPlatforms = (process.env.ALLOWED_PLATFORMS || "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s === "tiktok" || s === "instagram") as Array<"tiktok" | "instagram">;
+    const disableIG = (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
+    if (envPlatforms.length) platforms = envPlatforms as any;
+    if (disableIG) platforms = platforms.filter((p) => p !== "instagram") as any;
 
     for (const budget of budgetAdjustments) {
       for (const age of ageGroups) {
-        for (const creative of creativeTypes) {
-          for (const platform of platforms) {
+        for (const creative of creativeTypes as any) {
+          for (const platform of platforms as any) {
             actions.push({
               budgetAdjustment: budget,
               targetAgeGroup: age,
