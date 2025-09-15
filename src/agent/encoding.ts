@@ -5,7 +5,12 @@ import { AdAction, AdEnvironmentState } from "../types";
 
 // Fixed categorical orderings for determinism
 export const AGE_GROUPS = ["18-24", "25-34", "35-44", "45+"] as const;
-export const CREATIVE_TYPES = ["lifestyle", "product", "discount", "ugc"] as const;
+export const CREATIVE_TYPES = [
+  "lifestyle",
+  "product",
+  "discount",
+  "ugc",
+] as const;
 export const PLATFORMS = ["tiktok", "instagram"] as const; // actionable platforms only
 
 // Canonical interest vocabulary
@@ -28,7 +33,10 @@ function oneHot<T extends readonly string[]>(cats: T, v: string): number[] {
   return cats.map((c) => (c === v ? 1 : 0));
 }
 
-function multiHot<T extends readonly string[]>(vocab: T, values: string[]): number[] {
+function multiHot<T extends readonly string[]>(
+  vocab: T,
+  values: string[],
+): number[] {
   const set = new Set(values);
   return vocab.map((t) => (set.has(t) ? 1 : 0));
 }
@@ -48,9 +56,15 @@ export function encodeState(state: AdEnvironmentState): number[] {
 
   const budget = [normalizeBudget(state.currentBudget)];
   const age = oneHot(AGE_GROUPS as unknown as string[], state.targetAgeGroup);
-  const creative = oneHot(CREATIVE_TYPES as unknown as string[], state.creativeType);
+  const creative = oneHot(
+    CREATIVE_TYPES as unknown as string[],
+    state.creativeType,
+  );
   const platform = oneHot(PLATFORMS as unknown as string[], state.platform);
-  const interests = multiHot(INTEREST_VOCAB as unknown as string[], state.targetInterests);
+  const interests = multiHot(
+    INTEREST_VOCAB as unknown as string[],
+    state.targetInterests,
+  );
   const hist = [
     clamp(state.historicalCTR, 0, 1),
     clamp(state.historicalCVR, 0, 1),
@@ -58,7 +72,18 @@ export function encodeState(state: AdEnvironmentState): number[] {
     clamp(state.seasonality, 0, 1),
   ];
 
-  return [sinH, cosH, sinD, cosD, ...budget, ...age, ...creative, ...platform, ...interests, ...hist];
+  return [
+    sinH,
+    cosH,
+    sinD,
+    cosD,
+    ...budget,
+    ...age,
+    ...creative,
+    ...platform,
+    ...interests,
+    ...hist,
+  ];
 }
 
 // Discrete action grid (keep ordering stable)
@@ -78,14 +103,17 @@ const ENV_PLATFORMS = (process.env.ALLOWED_PLATFORMS || "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter((s) => s === "tiktok" || s === "instagram");
-const DISABLE_IG = (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
-const selectedPlatforms = (ENV_PLATFORMS.length ? ENV_PLATFORMS : Array.from(PLATFORMS)).filter(
-  (p) => (DISABLE_IG ? p !== "instagram" : true)
-);
+const DISABLE_IG =
+  (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
+const selectedPlatforms = (
+  ENV_PLATFORMS.length ? ENV_PLATFORMS : Array.from(PLATFORMS)
+).filter((p) => (DISABLE_IG ? p !== "instagram" : true));
 const LOCKED_CREATIVE = process.env.LOCKED_CREATIVE_TYPE;
-const selectedCreatives = LOCKED_CREATIVE && (CREATIVE_TYPES as readonly string[]).includes(LOCKED_CREATIVE)
-  ? [LOCKED_CREATIVE]
-  : Array.from(CREATIVE_TYPES);
+const selectedCreatives =
+  LOCKED_CREATIVE &&
+  (CREATIVE_TYPES as readonly string[]).includes(LOCKED_CREATIVE)
+    ? [LOCKED_CREATIVE]
+    : Array.from(CREATIVE_TYPES);
 
 export const ACTIONS: AdAction[] = [];
 for (const b of BUDGET_STEPS)
@@ -111,7 +139,7 @@ export function actionToIndex(a: AdAction): number {
       x.creativeType === a.creativeType &&
       x.platform === a.platform &&
       x.bidStrategy === a.bidStrategy &&
-      JSON.stringify(x.targetInterests) === JSON.stringify(a.targetInterests)
+      JSON.stringify(x.targetInterests) === JSON.stringify(a.targetInterests),
   );
 }
 

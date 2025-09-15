@@ -6,7 +6,10 @@ import { MockInstagramAdsAPI } from "./mockInstagram";
 // - Optionally expose a feature schema registry per platform for validation.
 
 export class AdPlatformFactory {
-  private static platforms: Map<string, AdPlatformAPI> = new Map<string, AdPlatformAPI>([
+  private static platforms: Map<string, AdPlatformAPI> = new Map<
+    string,
+    AdPlatformAPI
+  >([
     ["tiktok", new MockTikTokAdsAPI() as AdPlatformAPI],
     ["instagram", new MockInstagramAdsAPI() as AdPlatformAPI],
   ]);

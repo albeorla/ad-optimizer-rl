@@ -16,9 +16,14 @@ export class AdEnvironmentSimulator {
   private maxHourly = 3.0;
   private productPrice = 29.99;
   private cogsPerUnit = 15.0; // Printful base cost per shirt
-  private allowedPlatforms: Array<"tiktok" | "instagram"> = ["tiktok", "instagram"];
+  private allowedPlatforms: Array<"tiktok" | "instagram"> = [
+    "tiktok",
+    "instagram",
+  ];
   private lockedCreativeType: string | undefined = undefined;
-  private dailyBudgetTarget: number = Number(process.env.DAILY_BUDGET_TARGET || "30");
+  private dailyBudgetTarget: number = Number(
+    process.env.DAILY_BUDGET_TARGET || "30",
+  );
 
   constructor(opts?: {
     shapingStrength?: number;
@@ -34,30 +39,53 @@ export class AdEnvironmentSimulator {
     if (opts?.minHourly !== undefined) this.minHourly = opts.minHourly;
     if (opts?.maxHourly !== undefined) this.maxHourly = opts.maxHourly;
     this.productPrice = Number(
-      opts?.productPrice ?? process.env.TSHIRT_PRICE ?? process.env.PRODUCT_PRICE ?? this.productPrice
+      opts?.productPrice ??
+        process.env.TSHIRT_PRICE ??
+        process.env.PRODUCT_PRICE ??
+        this.productPrice,
     );
     this.cogsPerUnit = Number(
-      opts?.cogsPerUnit ?? process.env.PRINTFUL_COGS ?? process.env.COGS_PER_UNIT ?? this.cogsPerUnit
+      opts?.cogsPerUnit ??
+        process.env.PRINTFUL_COGS ??
+        process.env.COGS_PER_UNIT ??
+        this.cogsPerUnit,
     );
     // Allow locking platform set via opts or env (comma-separated)
     const envAllowed = (process.env.ALLOWED_PLATFORMS || "")
       .split(",")
       .map((s) => s.trim().toLowerCase())
-      .filter((s) => s === "tiktok" || s === "instagram") as Array<"tiktok" | "instagram">;
-    this.allowedPlatforms = opts?.allowedPlatforms ?? (envAllowed.length ? envAllowed : this.allowedPlatforms);
+      .filter((s) => s === "tiktok" || s === "instagram") as Array<
+      "tiktok" | "instagram"
+    >;
+    this.allowedPlatforms =
+      opts?.allowedPlatforms ??
+      (envAllowed.length ? envAllowed : this.allowedPlatforms);
     // If Instagram is flagged disabled explicitly, filter it out
     if ((process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true") {
-      this.allowedPlatforms = this.allowedPlatforms.filter((p) => p !== "instagram");
+      this.allowedPlatforms = this.allowedPlatforms.filter(
+        (p) => p !== "instagram",
+      );
     }
-    this.lockedCreativeType = (opts?.lockedCreativeType ?? process.env.LOCKED_CREATIVE_TYPE) as string | undefined;
-    this.dailyBudgetTarget = Number(opts?.dailyBudgetTarget ?? process.env.DAILY_BUDGET_TARGET ?? this.dailyBudgetTarget);
+    this.lockedCreativeType = (opts?.lockedCreativeType ??
+      process.env.LOCKED_CREATIVE_TYPE) as string | undefined;
+    this.dailyBudgetTarget = Number(
+      opts?.dailyBudgetTarget ??
+        process.env.DAILY_BUDGET_TARGET ??
+        this.dailyBudgetTarget,
+    );
 
     const entries: Array<[string, AdPlatformAPI]> = [];
     if (this.allowedPlatforms.includes("tiktok")) {
-      entries.push(["tiktok", new MockTikTokAdsAPI(shaping, this.productPrice, this.cogsPerUnit)]);
+      entries.push([
+        "tiktok",
+        new MockTikTokAdsAPI(shaping, this.productPrice, this.cogsPerUnit),
+      ]);
     }
     if (this.allowedPlatforms.includes("instagram")) {
-      entries.push(["instagram", new MockInstagramAdsAPI(shaping, this.productPrice, this.cogsPerUnit)]);
+      entries.push([
+        "instagram",
+        new MockInstagramAdsAPI(shaping, this.productPrice, this.cogsPerUnit),
+      ]);
     }
     this.platforms = new Map<string, AdPlatformAPI>(entries);
 
@@ -87,7 +115,9 @@ export class AdEnvironmentSimulator {
     return this.currentState;
   }
 
-  step(action: AdAction): [AdEnvironmentState, number, boolean, import("../types").RewardMetrics] {
+  step(
+    action: AdAction,
+  ): [AdEnvironmentState, number, boolean, import("../types").RewardMetrics] {
     // Enforce allowed platform(s)
     let platformKey = action.platform;
     if (!this.allowedPlatforms.includes(platformKey as any)) {
@@ -96,7 +126,11 @@ export class AdEnvironmentSimulator {
     }
     // Optionally lock creative to a single asset/type
     const effectiveCreative = this.lockedCreativeType ?? action.creativeType;
-    const sanitizedAction: AdAction = { ...action, platform: platformKey as any, creativeType: effectiveCreative };
+    const sanitizedAction: AdAction = {
+      ...action,
+      platform: platformKey as any,
+      creativeType: effectiveCreative,
+    };
 
     const platform = this.platforms.get(platformKey);
     if (!platform) throw new Error(`Platform ${action.platform} not found`);
@@ -106,11 +140,20 @@ export class AdEnvironmentSimulator {
     const desired = preBudget * sanitizedAction.budgetAdjustment;
     const clamped = Math.max(this.minHourly, Math.min(this.maxHourly, desired));
     const adjMultiplier = preBudget > 0 ? clamped / preBudget : 1.0;
-    const adjustedAction: AdAction = { ...sanitizedAction, budgetAdjustment: adjMultiplier };
+    const adjustedAction: AdAction = {
+      ...sanitizedAction,
+      budgetAdjustment: adjMultiplier,
+    };
 
-    const metrics = platform.simulatePerformance(this.currentState, adjustedAction);
+    const metrics = platform.simulatePerformance(
+      this.currentState,
+      adjustedAction,
+    );
     const reward = this.calculateReward(metrics);
-    this.currentState = this.updateState({ ...adjustedAction, budgetAdjustment: adjMultiplier });
+    this.currentState = this.updateState({
+      ...adjustedAction,
+      budgetAdjustment: adjMultiplier,
+    });
     this.timeStep++;
     const done = this.timeStep >= 24;
     return [this.currentState, reward, done, metrics];
@@ -121,8 +164,11 @@ export class AdEnvironmentSimulator {
     // Base reward on net profit (assumes platform metrics.profit already includes COGS)
     let reward = metrics.profit / 1000; // normalize
     // Bonus for strong margin-based ROAS = (revenue - cogs) / adSpend
-    const grossMargin = metrics.grossMargin ?? (metrics.revenue - (metrics.cogs ?? 0));
-    const marginRoas = metrics.marginRoas ?? (metrics.adSpend > 0 ? grossMargin / metrics.adSpend : 0);
+    const grossMargin =
+      metrics.grossMargin ?? metrics.revenue - (metrics.cogs ?? 0);
+    const marginRoas =
+      metrics.marginRoas ??
+      (metrics.adSpend > 0 ? grossMargin / metrics.adSpend : 0);
     if (marginRoas > 2.0) reward += 1.0;
     else if (marginRoas > 1.5) reward += 0.5;
     else if (marginRoas > 1.2) reward += 0.2;
@@ -138,26 +184,39 @@ export class AdEnvironmentSimulator {
   private updateState(action: AdAction): AdEnvironmentState {
     const newState = { ...this.currentState };
     newState.hourOfDay = (newState.hourOfDay + 1) % 24;
-    if (newState.hourOfDay === 0) newState.dayOfWeek = (newState.dayOfWeek + 1) % 7;
+    if (newState.hourOfDay === 0)
+      newState.dayOfWeek = (newState.dayOfWeek + 1) % 7;
 
     // Apply clamped budget to next state to avoid compounding growth
     const desired = this.currentState.currentBudget * action.budgetAdjustment;
-    newState.currentBudget = Math.max(this.minHourly, Math.min(this.maxHourly, desired));
+    newState.currentBudget = Math.max(
+      this.minHourly,
+      Math.min(this.maxHourly, desired),
+    );
     newState.targetAgeGroup = action.targetAgeGroup;
     newState.targetInterests = action.targetInterests;
     newState.creativeType = this.lockedCreativeType ?? action.creativeType;
-    newState.platform = (this.allowedPlatforms.includes(action.platform as any)
-      ? action.platform
-      : (this.allowedPlatforms[0] ?? "tiktok")) as any;
+    newState.platform = (
+      this.allowedPlatforms.includes(action.platform as any)
+        ? action.platform
+        : (this.allowedPlatforms[0] ?? "tiktok")
+    ) as any;
 
-    newState.historicalCTR = Math.max(0.001, newState.historicalCTR + (Math.random() - 0.5) * 0.002);
-    newState.historicalCVR = Math.max(0.001, newState.historicalCVR + (Math.random() - 0.5) * 0.001);
+    newState.historicalCTR = Math.max(
+      0.001,
+      newState.historicalCTR + (Math.random() - 0.5) * 0.002,
+    );
+    newState.historicalCVR = Math.max(
+      0.001,
+      newState.historicalCVR + (Math.random() - 0.5) * 0.001,
+    );
 
     newState.competitorActivity = Math.min(
       1,
-      Math.max(0, newState.competitorActivity + (Math.random() - 0.5) * 0.1)
+      Math.max(0, newState.competitorActivity + (Math.random() - 0.5) * 0.1),
     );
-    newState.seasonality = 0.7 + 0.3 * Math.sin((this.timeStep / 168) * Math.PI * 2);
+    newState.seasonality =
+      0.7 + 0.3 * Math.sin((this.timeStep / 168) * Math.PI * 2);
     return newState;
   }
 }

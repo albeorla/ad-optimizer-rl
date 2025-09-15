@@ -1,5 +1,8 @@
 import { AdAction, AdEnvironmentState, RewardMetrics } from "../types";
-import { RealShopifyDataSource, TimeWindow as Win } from "../datasources/shopify";
+import {
+  RealShopifyDataSource,
+  TimeWindow as Win,
+} from "../datasources/shopify";
 import { RealTikTokAdsAPI } from "../platforms/realTikTok";
 
 export class RealShadowEnvironment {
@@ -9,9 +12,12 @@ export class RealShadowEnvironment {
   private timeStep = 0;
   private minHourly = 0.5;
   private maxHourly = 3.0;
-  private cogsPerUnit = Number(process.env.PRINTFUL_COGS ?? process.env.COGS_PER_UNIT ?? 15);
+  private cogsPerUnit = Number(
+    process.env.PRINTFUL_COGS ?? process.env.COGS_PER_UNIT ?? 15,
+  );
   private dailyBudgetTarget = Number(process.env.DAILY_BUDGET_TARGET ?? 30);
-  private lockedCreativeType: string | undefined = process.env.LOCKED_CREATIVE_TYPE;
+  private lockedCreativeType: string | undefined =
+    process.env.LOCKED_CREATIVE_TYPE;
 
   constructor(shopify?: RealShopifyDataSource, tiktok?: RealTikTokAdsAPI) {
     this.shopify = shopify ?? new RealShopifyDataSource();
@@ -66,7 +72,9 @@ export class RealShadowEnvironment {
 
   private calculateReward(metrics: RewardMetrics): number {
     let reward = metrics.profit / 1000;
-    const marginRoas = metrics.marginRoas ?? (metrics.adSpend > 0 ? (metrics.grossMargin ?? 0) / metrics.adSpend : 0);
+    const marginRoas =
+      metrics.marginRoas ??
+      (metrics.adSpend > 0 ? (metrics.grossMargin ?? 0) / metrics.adSpend : 0);
     if (marginRoas > 2.0) reward += 1.0;
     else if (marginRoas > 1.5) reward += 0.5;
     else if (marginRoas > 1.2) reward += 0.2;
@@ -77,11 +85,16 @@ export class RealShadowEnvironment {
     return reward;
   }
 
-  async step(action: AdAction): Promise<[AdEnvironmentState, number, boolean, RewardMetrics]> {
+  async step(
+    action: AdAction,
+  ): Promise<[AdEnvironmentState, number, boolean, RewardMetrics]> {
     // Clamp budget change locally; do not write to real platform in shadow mode
     const preBudget = this.currentState.currentBudget;
     const desired = preBudget * action.budgetAdjustment;
-    const nextBudget = Math.max(this.minHourly, Math.min(this.maxHourly, desired));
+    const nextBudget = Math.max(
+      this.minHourly,
+      Math.min(this.maxHourly, desired),
+    );
 
     // Build 1-hour window ending now (or rolling synthetic hour for demo)
     const end = new Date();
@@ -92,7 +105,8 @@ export class RealShadowEnvironment {
     // Advance time
     const newState = { ...this.currentState };
     newState.hourOfDay = (newState.hourOfDay + 1) % 24;
-    if (newState.hourOfDay === 0) newState.dayOfWeek = (newState.dayOfWeek + 1) % 7;
+    if (newState.hourOfDay === 0)
+      newState.dayOfWeek = (newState.dayOfWeek + 1) % 7;
     newState.currentBudget = nextBudget;
     newState.targetAgeGroup = action.targetAgeGroup;
     newState.targetInterests = action.targetInterests;
@@ -104,4 +118,3 @@ export class RealShadowEnvironment {
     return [this.currentState, reward, done, metrics];
   }
 }
-

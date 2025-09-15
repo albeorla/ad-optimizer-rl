@@ -104,6 +104,7 @@ See `docs/torchjs_dqn_refactor.md` for a concise, step-by-step guide.
   - Useful flags: `--episodes`, `--batchSize`, `--gamma`, `--lr`, `--trainFreq`, `--targetSync`, `--replayCap`, `--epsilonStart`, `--epsilonMin`, `--epsilonDecay`
 
 Example:
+
 ```
 npm start -- \
   --agent=nn \
@@ -116,6 +117,7 @@ npm start -- \
 ```
 
 Notes
+
 - Backend: uses `@tensorflow/tfjs` by default for portability; consider `@tensorflow/tfjs-node` for faster training.
 - Encoding/Actions: see `src/agent/encoding.ts` for deterministic feature mapping and the action grid.
 
@@ -155,7 +157,6 @@ Example of a tidy console panel you can print during training:
 │ Top Age Group:         18-24 (41%)          │
 └─────────────────────────────────────────────┘
 ```
-
 
 ### 🚀 Why Reinforcement Learning for Ad Optimization?
 
@@ -434,7 +435,7 @@ pipeline.addObserver(
   new SlackNotifier({
     webhookUrl: process.env.SLACK_WEBHOOK,
     notifyOn: ["episode_complete", "milestone_reached"],
-  })
+  }),
 );
 ```
 
@@ -514,6 +515,7 @@ DAILY_BUDGET_TARGET=30       # shapes hourly spend penalty in reward
 ```
 
 These environment variables adjust the simulator to better reflect real operating constraints:
+
 - TSHIRT_PRICE/PRODUCT_PRICE: Revenue per unit sold.
 - PRINTFUL_COGS/COGS_PER_UNIT: Cost of goods per unit (used to compute net profit).
 - ALLOWED_PLATFORMS or DISABLE_INSTAGRAM: Restrict simulator to platforms you can actually run.
@@ -530,6 +532,7 @@ This repo now includes scaffolding to run a shadow-mode loop that composes real 
 - Runner: `src/run/shadowTraining.ts`
 
 Usage:
+
 - Set env vars for constraints and credentials (if wiring real APIs):
   - `PRINTFUL_COGS=15`, `TSHIRT_PRICE=29.99`, `DAILY_BUDGET_TARGET=30`
   - `SHOPIFY_API_KEY=...`, `SHOPIFY_STORE_DOMAIN=...`
@@ -537,6 +540,7 @@ Usage:
 - Run: `npm run build && node dist/run/shadowTraining.js --episodes=50`
 
 Notes:
+
 - The stubs return zero metrics by default; replace TODOs with real HTTP calls.
 - Reward shaping is margin-based ROAS: `(revenue - COGS) / adSpend` thresholds drive bonuses, not gross ROAS.
 
@@ -595,7 +599,7 @@ class DQNAgent extends RLAgent {
     state: AdEnvironmentState,
     action: AdAction,
     reward: number,
-    nextState: AdEnvironmentState
+    nextState: AdEnvironmentState,
   ): void;
 
   // Model persistence
@@ -825,7 +829,7 @@ class CustomPlatformAPI extends AdPlatformAPI {
 
   simulatePerformance(
     state: AdEnvironmentState,
-    action: AdAction
+    action: AdAction,
   ): RewardMetrics {
     // Custom performance simulation
     return {

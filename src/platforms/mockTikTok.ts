@@ -10,7 +10,11 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
   private productPrice: number;
   private cogsPerUnit: number;
 
-  constructor(shapingStrength: number = 1, productPrice: number = 29.99, cogsPerUnit: number = 15.0) {
+  constructor(
+    shapingStrength: number = 1,
+    productPrice: number = 29.99,
+    cogsPerUnit: number = 15.0,
+  ) {
     super();
     this.shapingStrength = shapingStrength;
     this.productPrice = productPrice;
@@ -34,7 +38,7 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
 
   simulatePerformance(
     state: AdEnvironmentState,
-    action: AdAction
+    action: AdAction,
   ): RewardMetrics {
     // Budget-driven base impressions ($1 ~ 20 impressions)
     const budgetAmount = state.currentBudget * action.budgetAdjustment;
@@ -43,18 +47,25 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
     // Performance multiplier: demographics, creative, time-of-day
     let performanceMultiplier = 1.0;
     // TikTok: young audiences excel
-    if (action.targetAgeGroup === "18-24") performanceMultiplier *= 1.5 * this.shapingStrength;
+    if (action.targetAgeGroup === "18-24")
+      performanceMultiplier *= 1.5 * this.shapingStrength;
     else if (action.targetAgeGroup === "25-34") performanceMultiplier *= 1.2;
     else if (action.targetAgeGroup === "45+") performanceMultiplier *= 0.8;
     // TikTok: UGC thrives; discounts underperform
-    if (action.creativeType === "ugc") performanceMultiplier *= 1.3 * this.shapingStrength;
+    if (action.creativeType === "ugc")
+      performanceMultiplier *= 1.3 * this.shapingStrength;
     else if (action.creativeType === "discount") performanceMultiplier *= 0.8;
     // Peak hours boost (evening)
-    if (state.hourOfDay >= 18 && state.hourOfDay <= 22) performanceMultiplier *= 1.5;
-    else if (state.hourOfDay >= 0 && state.hourOfDay <= 6) performanceMultiplier *= 0.6;
+    if (state.hourOfDay >= 18 && state.hourOfDay <= 22)
+      performanceMultiplier *= 1.5;
+    else if (state.hourOfDay >= 0 && state.hourOfDay <= 6)
+      performanceMultiplier *= 0.6;
     // Diminishing returns for aggressive budgets
     if (action.budgetAdjustment > 1.5) {
-      performanceMultiplier *= Math.max(0.5, 2.0 - action.budgetAdjustment * 0.8);
+      performanceMultiplier *= Math.max(
+        0.5,
+        2.0 - action.budgetAdjustment * 0.8,
+      );
     }
 
     // Calculate realistic metrics

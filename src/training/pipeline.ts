@@ -40,7 +40,8 @@ export class TrainingPipeline {
 
       while (!done) {
         const action = this.agent.selectAction(state);
-        const [nextState, reward, episodeDone, metrics] = this.environment.step(action);
+        const [nextState, reward, episodeDone, metrics] =
+          this.environment.step(action);
         this.agent.update(state, action, reward, nextState);
         totalReward += reward;
         stepCount++;
@@ -54,7 +55,7 @@ export class TrainingPipeline {
             age: action.targetAgeGroup,
             creative: action.creativeType,
             platform: action.platform,
-          })
+          }),
         );
       }
 

@@ -89,11 +89,19 @@ export class DQNAgentNN extends RLAgent {
     const s = encodeState(state) as Vec;
     this.ensureInitialized(s.length);
     const q = this.qNet!.forward([s])[0] ?? [];
-    const aIdx = q.length === ACTIONS.length ? this.bestActionIndex(q) : Math.floor(Math.random() * ACTIONS.length);
+    const aIdx =
+      q.length === ACTIONS.length
+        ? this.bestActionIndex(q)
+        : Math.floor(Math.random() * ACTIONS.length);
     return indexToAction(aIdx);
   }
 
-  update(state: AdEnvironmentState, action: AdAction, reward: number, nextState: AdEnvironmentState): void {
+  update(
+    state: AdEnvironmentState,
+    action: AdAction,
+    reward: number,
+    nextState: AdEnvironmentState,
+  ): void {
     const s = encodeState(state) as Vec;
     const sp = encodeState(nextState) as Vec;
     this.ensureInitialized(s.length);
@@ -111,7 +119,10 @@ export class DQNAgentNN extends RLAgent {
     this.epsilon = Math.max(this.minEpsilon, this.epsilon * this.epsilonDecay);
 
     // Train periodically
-    if (this.replay.size() >= this.hp.batchSize && this.stepCounter % this.hp.trainFreq === 0) {
+    if (
+      this.replay.size() >= this.hp.batchSize &&
+      this.stepCounter % this.hp.trainFreq === 0
+    ) {
       this.trainBatch();
       this.trainCounter++;
       if (this.trainCounter % this.hp.targetSync === 0) {

@@ -42,7 +42,7 @@ async function shadowTrain(episodes: number = 10) {
           age: action.targetAgeGroup,
           creative: action.creativeType,
           platform: action.platform,
-        })
+        }),
       );
     }
 
@@ -77,9 +77,10 @@ async function shadowTrain(episodes: number = 10) {
 }
 
 if (require.main === module) {
-  const episodes = Number(process.argv.find((a) => a.startsWith("--episodes="))?.split("=")[1] ?? 10);
+  const episodes = Number(
+    process.argv.find((a) => a.startsWith("--episodes="))?.split("=")[1] ?? 10,
+  );
   shadowTrain(episodes).catch(console.error);
 }
 
 export { shadowTrain };
-

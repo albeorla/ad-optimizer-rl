@@ -4,6 +4,8 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
     "start": "ts-node src/main.ts",
     "build": "tsc -p tsconfig.json",
     "start:prod": "npm run build && node dist/main.js",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.3.2",
+    "prettier": "^3.6.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }

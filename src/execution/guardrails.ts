@@ -85,5 +85,9 @@ export function applyGuardrails(params: {
     }
   }
 
-  return { allowedBudget: Number(allowed.toFixed(2)), applied: allowed !== proposedHourlyBudget, reasons };
+  return {
+    allowedBudget: Number(allowed.toFixed(2)),
+    applied: allowed !== proposedHourlyBudget,
+    reasons,
+  };
 }

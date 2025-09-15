@@ -12,22 +12,22 @@ Use this checklist to launch a low‑spend RL proof‑of‑concept that controls
 ## 1) Accounts, Access, and Tokens
 
 - [ ] Shopify custom app (Admin API access token) secured
-  - Store domain: __________
+  - Store domain: \***\*\_\_\*\***
   - Admin token: (in `.env` only)
 - [ ] Meta Marketing API (Instagram) access
   - Ad account ID: `act_____________`
   - Long‑lived token: (in `.env` only)
   - App scopes: `ads_management`, `ads_read`, `business_management`
 - [ ] TikTok Business Ads access
-  - Ad account ID: ____________
+  - Ad account ID: \***\*\_\_\_\_\*\***
   - Access token: (in `.env` only)
 - [ ] Timezone confirmed (e.g., `TZ=America/New_York`)
 
 ## 2) Canary Selection (Pilot Targets)
 
 - [ ] Choose 1 adset per platform to manage
-  - TikTok adset ID: ____________ (baseline daily budget: $__)
-  - Instagram adset ID: ____________ (baseline daily budget: $__)
+  - TikTok adset ID: \***\*\_\_\_\_\*\*** (baseline daily budget: $\_\_)
+  - Instagram adset ID: \***\*\_\_\_\_\*\*** (baseline daily budget: $\_\_)
 - [ ] Creative mapping available (tag creatives: `ugc` | `lifestyle` | `product` | `discount`)
 - [ ] Target audiences documented (age buckets, interests)
 
@@ -144,6 +144,7 @@ Use this checklist to launch a low‑spend RL proof‑of‑concept that controls
 ---
 
 References:
+
 - docs/api_spec.md — Endpoints, scopes, flags
 - docs/real_integration.md — Architecture, adapters, reward/guardrails
 - docs/low_spend_rollout.md — Cost‑sensitive strategy & no‑sales handling

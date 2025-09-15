@@ -37,4 +37,3 @@ export class ReplayBuffer<S extends readonly number[]> {
     return out;
   }
 }
-

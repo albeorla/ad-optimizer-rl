@@ -6,7 +6,7 @@ export abstract class AdPlatformAPI {
   abstract getCampaignMetrics(campaignId: string): Promise<RewardMetrics>;
   abstract simulatePerformance(
     state: AdEnvironmentState,
-    action: AdAction
+    action: AdAction,
   ): RewardMetrics;
 }
 // DQN-REFAC TODO:

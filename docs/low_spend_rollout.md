@@ -20,10 +20,12 @@ Two complementary ways to encode “spend as little as possible while maximizing
   - This increases the penalty when you overshoot the budget, reducing future spend.
 
 Practical defaults:
+
 - Begin with small λ_spend (e.g., 0.1) and a tight daily budget target.
 - Increase λ_spend or the Lagrangian step η when trailing ROAS is poor or spend tracks above plan.
 
 Implementation notes:
+
 - Add `LAMBDA_SPEND` and optional `LAMBDA_STEP` (η) config. Apply in the reward service/environment.
 - Keep the ROAS bonus and overspend penalties; the λ_spend term provides smooth cost pressure across all states.
 
@@ -45,6 +47,7 @@ Implementation notes:
 - Kill Switch: instant rollback to last known budgets; pause runner on anomalies.
 
 Cost-aware guardrails:
+
 - Daily Spend Target: per-account and per-adset (e.g., $10/day); reduce per-hour caps as you approach target.
 - Hourly Knapsack: allocate limited hourly budget only to adsets/hours with best expected ROAS (greedy or UCB/Thompson sampling).
 
@@ -56,6 +59,7 @@ Cost-aware guardrails:
 - Bandit Pre-Phase: start with budget-only actions (0.5x, 0.75x, 1.0x) before enabling more complex changes.
 
 Budget-allocation bandit (optional before full RL):
+
 - Treat hours×platforms as arms with reward = profit/adSpend (ROAS proxy).
 - Allocate a fixed tiny hourly budget to top arms via UCB/Thompson; clamp spend to the cap.
 - Feed the resulting episodes into the RL agent for richer policy learning later.
@@ -81,6 +85,7 @@ Budget-allocation bandit (optional before full RL):
 - Weekly Review: widen caps and scope if KPIs are healthy; otherwise hold or roll back.
 
 Adaptive λ schedule:
+
 - Recompute λ_spend daily from the ratio of actual spend vs budget target.
 - If conversions are sparse, increase λ_spend to prioritize minimal spend until signal returns.
 
@@ -93,6 +98,7 @@ Adaptive λ schedule:
 - Shadow Logs: persist “suggested vs applied” for audit and backtesting.
 
 Cost parameters:
+
 - `LAMBDA_SPEND` (e.g., 0.1–0.3)
 - `DAILY_BUDGET_TARGET` per platform/account
 - `LAGRANGE_STEP` (η) for budget constraint tuning (e.g., 0.05)
@@ -127,6 +133,7 @@ Persist experiences in a DB to grow samples daily:
 - During nightly training, sample batches from this table for updates.
 
 Also persist budget constraint state:
+
 - Table `budget_state(date, platform, target_spend, actual_spend, lambda_spend)` for auditability and reproducibility.
 
 ## Shadow-Mode Runner Spec
@@ -136,6 +143,7 @@ Also persist budget constraint state:
 - Behavior (pilot): apply budget deltas up to delta cap; respect daily/hourly caps and freeze conditions.
 
 Cost-aware flags:
+
 - `--lambda-spend=0.2` penalty weight on spend in reward computation
 - `--daily-budget-target=10` (USD)
 - `--lagrange-step=0.05` dual ascent step size
@@ -147,6 +155,7 @@ Cost-aware flags:
 - Dashboards: trailing 7/14/30-day KPIs; per-hour heatmaps; suggested vs applied changes.
 
 Cost-aware KPIs:
+
 - Spend vs budget target (daily/weekly), λ_spend trend, marginal profit per $.
 
 ## Checklist
@@ -160,15 +169,18 @@ Cost-aware KPIs:
 ## No-Sales Periods (Prolonged Zero Conversions)
 
 Expected behavior:
+
 - Rewards turn negative; the live policy contracts spend toward minimums.
 - ROAS bonuses vanish; overspend penalties and λ_spend dominate decisions.
 
 Safety actions:
+
 - Freeze increases when zero conversions for N hours (e.g., 12) or trailing ROAS < threshold.
 - Restrict to peak hours and minimum floors only; optionally switch to shadow mode until signal returns.
 - Use attribution lag handling (credit a fraction of conversions backward k hours) to avoid over-penalizing recent spend.
 
 Learning hygiene:
+
 - Keep exploration low live (ε ~ 0.05–0.10); rely on replay buffer and prior positive episodes to avoid catastrophic forgetting.
 - Maintain canary scope; do not expand managed spend until sales resume.
 

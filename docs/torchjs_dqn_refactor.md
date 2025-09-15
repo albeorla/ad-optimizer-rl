@@ -17,30 +17,37 @@ This tutorial shows how to refactor a table-based Q-learning agent into a Deep Q
 
 This guide outlines the key steps to transition from a Q-table to a neural network–based Deep Q-Network (DQN) agent using Torch.js.
 
-1) The Goal: From Table to Network
+1. The Goal: From Table to Network
+
 - Replace the Q-table (lookups) with a Q-network that approximates Q(s, a), enabling generalization in large/continuous state spaces.
 
-2) State & Action Encoding
+2. State & Action Encoding
+
 - State encoding: deterministic function mapping a state object to a fixed-length numeric vector (use one-hot for categorical features; normalize or scale numeric features; consider cyclical encodings for time).
 - Action encoding: define a stable, finite action set and map each action to an integer index; the network output dimension equals the number of actions.
 
-3) Building the Q-Network
+3. Building the Q-Network
+
 - Create `qNet` (MLP with 2–3 hidden layers, ReLU) and a frozen `targetNet` clone.
 - Use Adam optimizer and MSE loss on TD targets.
 
-4) Stabilizing Training
+4. Stabilizing Training
+
 - Experience replay: random mini-batches from a fixed-capacity buffer of (s, a, r, s', done).
 - Target network: periodically copy weights from `qNet` to `targetNet` to stabilize targets.
 
-5) The Training Step
+5. The Training Step
+
 - For each batch, compute predictions and TD targets `y = r + γ·(1−done)·max_a' Q_target(s', a')`.
 - Minimize MSE between `q_sa` and `y`, backpropagate, and step optimizer (optionally clip gradients).
 
-6) Managing Learning Over Time
+6. Managing Learning Over Time
+
 - ε-greedy exploration: start high (e.g., 1.0) and decay to a floor (e.g., 0.05).
 - Learning rate scheduling: optionally decay LR from 1e-3 toward a smaller value.
 
-7) Integration and Persistence
+7. Integration and Persistence
+
 - Integrate into `dqnAgent.ts`: replace table operations with network forward/backward, replay, and target sync.
 - Implement `save/load` for model weights, optimizer state, and training metadata (e.g., ε).
 
@@ -80,17 +87,17 @@ const INTEREST_VOCAB = [
 ] as const;
 
 type AdEnvironmentState = {
-  dayOfWeek: number;      // 0-6
-  hourOfDay: number;      // 0-23
-  currentBudget: number;  // USD
+  dayOfWeek: number; // 0-6
+  hourOfDay: number; // 0-23
+  currentBudget: number; // USD
   targetAgeGroup: string;
   targetInterests: string[];
   creativeType: string;
-  platform: string;       // "tiktok" | "instagram" | "shopify"
-  historicalCTR: number;  // 0..1
-  historicalCVR: number;  // 0..1
+  platform: string; // "tiktok" | "instagram" | "shopify"
+  historicalCTR: number; // 0..1
+  historicalCVR: number; // 0..1
   competitorActivity: number; // 0..1
-  seasonality: number;        // 0..1
+  seasonality: number; // 0..1
 };
 
 function cyclicalPair(value: number, period: number): [number, number] {
@@ -102,7 +109,10 @@ function oneHot<T extends readonly string[]>(cats: T, v: string): number[] {
   return cats.map((c) => (c === v ? 1 : 0));
 }
 
-function multiHot<T extends readonly string[]>(vocab: T, values: string[]): number[] {
+function multiHot<T extends readonly string[]>(
+  vocab: T,
+  values: string[],
+): number[] {
   const set = new Set(values);
   return vocab.map((t) => (set.has(t) ? 1 : 0));
 }
@@ -126,11 +136,17 @@ export function encodeState(state: AdEnvironmentState): number[] {
 
   // Categorical (one-hot): age(4) + creative(4) + platform(2) → 10 dims
   const age = oneHot(AGE_GROUPS as unknown as string[], state.targetAgeGroup);
-  const creative = oneHot(CREATIVE_TYPES as unknown as string[], state.creativeType);
+  const creative = oneHot(
+    CREATIVE_TYPES as unknown as string[],
+    state.creativeType,
+  );
   const platform = oneHot(PLATFORMS as unknown as string[], state.platform);
 
   // Interests (multi-hot) → |INTEREST_VOCAB| dims
-  const interests = multiHot(INTEREST_VOCAB as unknown as string[], state.targetInterests);
+  const interests = multiHot(
+    INTEREST_VOCAB as unknown as string[],
+    state.targetInterests,
+  );
 
   // Historical + market (already 0..1-ish) → 4 dims
   const hist = [
@@ -141,7 +157,10 @@ export function encodeState(state: AdEnvironmentState): number[] {
   ];
 
   return [
-    sinH, cosH, sinD, cosD,
+    sinH,
+    cosH,
+    sinD,
+    cosD,
     ...budget,
     ...age,
     ...creative,
@@ -155,6 +174,7 @@ export function encodeState(state: AdEnvironmentState): number[] {
 ```
 
 Notes:
+
 - Determinism comes from fixed ordering of categories and the interest vocabulary.
 - If budgets vary widely, prefer log-scale or standardization per account.
 - You may replace cyclical encodings with one-hot if preferred; keep ordering documented.
@@ -172,12 +192,7 @@ const PLAT_ACTIONS = PLATFORMS; // actionable platforms
 const BID_STRATEGIES = ["CPC", "CPM", "CPA"] as const;
 
 // Optional: compress interests into a few canonical bundles
-const INTEREST_BUNDLES = [
-  [],
-  ["fashion"],
-  ["sports"],
-  ["tech"],
-] as const;
+const INTEREST_BUNDLES = [[], ["fashion"], ["sports"], ["tech"]] as const;
 
 type AdAction = {
   budgetAdjustment: number;
@@ -213,7 +228,7 @@ export function actionToIndex(a: AdAction): number {
       x.creativeType === a.creativeType &&
       x.platform === a.platform &&
       x.bidStrategy === a.bidStrategy &&
-      JSON.stringify(x.targetInterests) === JSON.stringify(a.targetInterests)
+      JSON.stringify(x.targetInterests) === JSON.stringify(a.targetInterests),
   );
 }
 
@@ -236,8 +251,10 @@ Pseudo-TypeScript sketch (API-agnostic Torch.js style):
 ```ts
 // Shapes: S = state feature size, A = number of actions
 const qNet = new TorchSequential([
-  Linear(S, 128), ReLU(),
-  Linear(128, 64), ReLU(),
+  Linear(S, 128),
+  ReLU(),
+  Linear(128, 64),
+  ReLU(),
   Linear(64, A),
 ]);
 const targetNet = qNet.clone().freezeGrad();
@@ -263,12 +280,12 @@ Pseudo-code:
 
 ```ts
 function trainStep(batch) {
-  const X = encodeStates(batch.states);     // [B, S]
-  const Xp = encodeStates(batch.nextStates);// [B, S]
-  const Q = qNet.forward(X);                // [B, A]
-  const Qp = targetNet.forward(Xp);         // [B, A]
+  const X = encodeStates(batch.states); // [B, S]
+  const Xp = encodeStates(batch.nextStates); // [B, S]
+  const Q = qNet.forward(X); // [B, A]
+  const Qp = targetNet.forward(Xp); // [B, A]
 
-  const maxQp = Qp.max(1);                  // [B]
+  const maxQp = Qp.max(1); // [B]
   const y = batch.rewards + gamma * (1 - batch.dones) * maxQp; // [B]
 
   const q_sa = Q.gather(1, batch.actionsIdx); // [B]
@@ -322,16 +339,22 @@ type EncodedState = Float32Array; // length S
 
 interface Transition {
   s: EncodedState;
-  a: number;       // action index
+  a: number; // action index
   r: number;
   sp: EncodedState;
   done: 0 | 1;
 }
 
 class ReplayBuffer {
-  constructor(capacity: number) { /* ... */ }
-  push(t: Transition) { /* ... */ }
-  sample(batchSize: number): Transition[] { /* ... */ }
+  constructor(capacity: number) {
+    /* ... */
+  }
+  push(t: Transition) {
+    /* ... */
+  }
+  sample(batchSize: number): Transition[] {
+    /* ... */
+  }
 }
 ```
 
@@ -354,6 +377,7 @@ class ReplayBuffer {
   - `--epsilonStart (1.0)`, `--epsilonMin (0.05)`, `--epsilonDecay (0.995)`
 
 - Example:
+
 ```
 npm start -- \
   --agent=nn \

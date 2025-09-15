@@ -27,4 +27,3 @@ export class RealShopifyDataSource {
     return { revenue: 0, conversions: 0 };
   }
 }
-

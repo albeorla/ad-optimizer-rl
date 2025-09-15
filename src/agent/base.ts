@@ -16,7 +16,7 @@ export abstract class RLAgent {
     state: AdEnvironmentState,
     action: AdAction,
     reward: number,
-    nextState: AdEnvironmentState
+    nextState: AdEnvironmentState,
   ): void;
   abstract save(filepath: string): void | Promise<void>;
   abstract load(filepath: string): void | Promise<void>;

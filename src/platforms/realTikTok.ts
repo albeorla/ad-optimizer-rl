@@ -34,13 +34,20 @@ export class RealTikTokAdsAPI extends AdPlatformAPI {
 
   // Real data fetcher to get ad spend for a given window.
   // TODO: Implement TikTok Ads API calls with filtering by campaign/adgroup and time granularity.
-  async getAdMetricsForWindow(window: TimeWindow, campaignId?: string): Promise<TikTokAdMetrics> {
+  async getAdMetricsForWindow(
+    window: TimeWindow,
+    campaignId?: string,
+  ): Promise<TikTokAdMetrics> {
     return { adSpend: 0 };
   }
 
   // Real adapters should not simulate performance; the environment must compose real metrics.
-  simulatePerformance(state: AdEnvironmentState, action: AdAction): RewardMetrics {
-    throw new Error("simulatePerformance is not supported in RealTikTokAdsAPI. Use real metrics composition.");
+  simulatePerformance(
+    state: AdEnvironmentState,
+    action: AdAction,
+  ): RewardMetrics {
+    throw new Error(
+      "simulatePerformance is not supported in RealTikTokAdsAPI. Use real metrics composition.",
+    );
   }
 }
-

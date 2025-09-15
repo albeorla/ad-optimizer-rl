@@ -30,7 +30,8 @@ export class DQNAgent extends RLAgent {
   }) {
     super();
     if (opts?.learningRate !== undefined) this.learningRate = opts.learningRate;
-    if (opts?.discountFactor !== undefined) this.discountFactor = opts.discountFactor;
+    if (opts?.discountFactor !== undefined)
+      this.discountFactor = opts.discountFactor;
     if (opts?.epsilonStart !== undefined) this.epsilon = opts.epsilonStart;
     if (opts?.epsilonDecay !== undefined) this.epsilonDecay = opts.epsilonDecay;
     if (opts?.minEpsilon !== undefined) this.minEpsilon = opts.minEpsilon;
@@ -50,18 +51,28 @@ export class DQNAgent extends RLAgent {
     const ageGroups = ["18-24", "25-34", "35-44", "45+"];
     let creativeTypes = ["lifestyle", "product", "discount", "ugc"] as const;
     const lockedCreative = process.env.LOCKED_CREATIVE_TYPE;
-    if (lockedCreative && (creativeTypes as readonly string[]).includes(lockedCreative)) {
+    if (
+      lockedCreative &&
+      (creativeTypes as readonly string[]).includes(lockedCreative)
+    ) {
       creativeTypes = [lockedCreative] as any;
     }
     const bidStrategies: Array<"CPC" | "CPM" | "CPA"> = ["CPC", "CPM", "CPA"];
-    let platforms: Array<"tiktok" | "instagram" | "shopify"> = ["tiktok", "instagram"];
+    let platforms: Array<"tiktok" | "instagram" | "shopify"> = [
+      "tiktok",
+      "instagram",
+    ];
     const envPlatforms = (process.env.ALLOWED_PLATFORMS || "")
       .split(",")
       .map((s) => s.trim().toLowerCase())
-      .filter((s) => s === "tiktok" || s === "instagram") as Array<"tiktok" | "instagram">;
-    const disableIG = (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
+      .filter((s) => s === "tiktok" || s === "instagram") as Array<
+      "tiktok" | "instagram"
+    >;
+    const disableIG =
+      (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
     if (envPlatforms.length) platforms = envPlatforms as any;
-    if (disableIG) platforms = platforms.filter((p) => p !== "instagram") as any;
+    if (disableIG)
+      platforms = platforms.filter((p) => p !== "instagram") as any;
 
     for (const budget of budgetAdjustments) {
       for (const age of ageGroups) {
@@ -83,7 +94,15 @@ export class DQNAgent extends RLAgent {
   }
 
   private generateInterests(): string[] {
-    const allInterests = ["fashion", "sports", "music", "tech", "fitness", "art", "travel"];
+    const allInterests = [
+      "fashion",
+      "sports",
+      "music",
+      "tech",
+      "fitness",
+      "art",
+      "travel",
+    ];
     const numInterests = Math.floor(Math.random() * 3) + 1;
     const interests: string[] = [];
     for (let i = 0; i < numInterests; i++) {
@@ -140,27 +159,32 @@ export class DQNAgent extends RLAgent {
     state: AdEnvironmentState,
     action: AdAction,
     reward: number,
-    nextState: AdEnvironmentState
+    nextState: AdEnvironmentState,
   ): void {
     this.experienceReplay.push({ state, action, reward, nextState });
-    if (this.experienceReplay.length > this.maxReplaySize) this.experienceReplay.shift();
+    if (this.experienceReplay.length > this.maxReplaySize)
+      this.experienceReplay.shift();
 
     const stateKey = this.stateToKey(state);
     const actionKey = this.actionToKey(action);
     const nextStateKey = this.stateToKey(nextState);
 
     if (!this.qTable.has(stateKey)) this.qTable.set(stateKey, new Map());
-    if (!this.qTable.has(nextStateKey)) this.qTable.set(nextStateKey, new Map());
+    if (!this.qTable.has(nextStateKey))
+      this.qTable.set(nextStateKey, new Map());
 
     const currentQ = this.qTable.get(stateKey)!.get(actionKey) || 0;
 
     let maxNextQ = 0;
     const nextStateQValues = this.qTable.get(nextStateKey);
     if (nextStateQValues) {
-      for (const qValue of nextStateQValues.values()) maxNextQ = Math.max(maxNextQ, qValue);
+      for (const qValue of nextStateQValues.values())
+        maxNextQ = Math.max(maxNextQ, qValue);
     }
 
-    const newQ = currentQ + this.learningRate * (reward + this.discountFactor * maxNextQ - currentQ);
+    const newQ =
+      currentQ +
+      this.learningRate * (reward + this.discountFactor * maxNextQ - currentQ);
     this.qTable.get(stateKey)!.set(actionKey, newQ);
 
     this.epsilon = Math.max(this.minEpsilon, this.epsilon * this.epsilonDecay);
@@ -171,7 +195,8 @@ export class DQNAgent extends RLAgent {
   private replayExperience(): void {
     const batchSize = Math.min(32, this.experienceReplay.length);
     const batch = [] as typeof this.experienceReplay;
-    for (let i = 0; i < batchSize; i++) batch.push(this.pickRandom(this.experienceReplay));
+    for (let i = 0; i < batchSize; i++)
+      batch.push(this.pickRandom(this.experienceReplay));
 
     for (const experience of batch) {
       const stateKey = this.stateToKey(experience.state);
@@ -182,16 +207,23 @@ export class DQNAgent extends RLAgent {
       let maxNextQ = 0;
       const nextStateQValues = this.qTable.get(nextStateKey);
       if (nextStateQValues) {
-        for (const qValue of nextStateQValues.values()) maxNextQ = Math.max(maxNextQ, qValue);
+        for (const qValue of nextStateQValues.values())
+          maxNextQ = Math.max(maxNextQ, qValue);
       }
-      const newQ = currentQ + this.learningRate * (experience.reward + this.discountFactor * maxNextQ - currentQ);
+      const newQ =
+        currentQ +
+        this.learningRate *
+          (experience.reward + this.discountFactor * maxNextQ - currentQ);
       this.qTable.get(stateKey)!.set(actionKey, newQ);
     }
   }
 
   save(filepath: string): void {
     const data = {
-      qTable: Array.from(this.qTable.entries()).map(([state, actions]) => ({ state, actions: Array.from(actions.entries()) })),
+      qTable: Array.from(this.qTable.entries()).map(([state, actions]) => ({
+        state,
+        actions: Array.from(actions.entries()),
+      })),
       epsilon: this.epsilon,
       learningRate: this.learningRate,
       discountFactor: this.discountFactor,
@@ -217,8 +249,22 @@ export class DQNAgent extends RLAgent {
   seedHeuristics(stateTemplate: AdEnvironmentState): void {
     const hours = [18, 19, 20];
     const combos: AdAction[] = [
-      { budgetAdjustment: 1.25, targetAgeGroup: "18-24", targetInterests: ["fashion"], creativeType: "ugc", bidStrategy: "CPC", platform: "tiktok" },
-      { budgetAdjustment: 1.0, targetAgeGroup: "25-34", targetInterests: ["lifestyle"], creativeType: "product", bidStrategy: "CPM", platform: "instagram" },
+      {
+        budgetAdjustment: 1.25,
+        targetAgeGroup: "18-24",
+        targetInterests: ["fashion"],
+        creativeType: "ugc",
+        bidStrategy: "CPC",
+        platform: "tiktok",
+      },
+      {
+        budgetAdjustment: 1.0,
+        targetAgeGroup: "25-34",
+        targetInterests: ["lifestyle"],
+        creativeType: "product",
+        bidStrategy: "CPM",
+        platform: "instagram",
+      },
     ];
     for (const hod of hours) {
       const state = { ...stateTemplate, hourOfDay: hod };
@@ -233,6 +279,7 @@ export class DQNAgent extends RLAgent {
 
   // Episode end hook: apply learning rate schedule
   onEpisodeEnd(episode: number): void {
-    this.learningRate = this.initialLearningRate * Math.pow(this.lrDecay, episode);
+    this.learningRate =
+      this.initialLearningRate * Math.pow(this.lrDecay, episode);
   }
 }

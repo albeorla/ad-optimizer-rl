@@ -9,7 +9,11 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
   private productPrice: number;
   private cogsPerUnit: number;
 
-  constructor(shapingStrength: number = 1, productPrice: number = 29.99, cogsPerUnit: number = 15.0) {
+  constructor(
+    shapingStrength: number = 1,
+    productPrice: number = 29.99,
+    cogsPerUnit: number = 15.0,
+  ) {
     super();
     this.shapingStrength = shapingStrength;
     this.productPrice = productPrice;
@@ -25,7 +29,7 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
 
   simulatePerformance(
     state: AdEnvironmentState,
-    action: AdAction
+    action: AdAction,
   ): RewardMetrics {
     // Budget-driven base impressions
     const budgetAmount = state.currentBudget * action.budgetAdjustment;
@@ -33,16 +37,26 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
 
     // Performance multipliers: demographics, creative, time-of-day
     let performanceMultiplier = 1.0;
-    if (action.targetAgeGroup === "25-34" || action.targetAgeGroup === "35-44") performanceMultiplier *= 1.25 * this.shapingStrength;
-    if (action.creativeType === "lifestyle" || action.creativeType === "product") performanceMultiplier *= 1.3 * this.shapingStrength;
+    if (action.targetAgeGroup === "25-34" || action.targetAgeGroup === "35-44")
+      performanceMultiplier *= 1.25 * this.shapingStrength;
+    if (
+      action.creativeType === "lifestyle" ||
+      action.creativeType === "product"
+    )
+      performanceMultiplier *= 1.3 * this.shapingStrength;
     // Discounts acceptable on IG but neutral
     if (action.creativeType === "discount") performanceMultiplier *= 1.0;
     // Peak hours boost (evening)
-    if (state.hourOfDay >= 18 && state.hourOfDay <= 22) performanceMultiplier *= 1.5;
-    else if (state.hourOfDay >= 0 && state.hourOfDay <= 6) performanceMultiplier *= 0.7;
+    if (state.hourOfDay >= 18 && state.hourOfDay <= 22)
+      performanceMultiplier *= 1.5;
+    else if (state.hourOfDay >= 0 && state.hourOfDay <= 6)
+      performanceMultiplier *= 0.7;
     // Diminishing returns for aggressive budgets
     if (action.budgetAdjustment > 1.5) {
-      performanceMultiplier *= Math.max(0.5, 2.0 - action.budgetAdjustment * 0.8);
+      performanceMultiplier *= Math.max(
+        0.5,
+        2.0 - action.budgetAdjustment * 0.8,
+      );
     }
 
     const effectiveImpressions = baseImpressions * performanceMultiplier;

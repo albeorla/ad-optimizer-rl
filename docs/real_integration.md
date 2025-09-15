@@ -25,6 +25,7 @@ Data ingress → Feature store → Policy (RL) → Safety checks → Actuator �
 ```
 
 Key repo components you’ll extend:
+
 - `src/platforms/base.ts` (AdPlatformAPI)
 - `src/platforms/factory.ts`
 - `src/environment/simulator.ts` (replace with a real environment service)
@@ -34,6 +35,7 @@ Key repo components you’ll extend:
 ## 3) Data Model (Suggested Tables)
 
 Create tables (Postgres style, adapt as needed):
+
 - `ad_accounts(platform, external_id, name)`
 - `campaigns(id, account_id, platform, external_id, name)`
 - `adsets(id, campaign_id, platform, external_id, name, target_age_group, interests[], creative_group)`
@@ -65,12 +67,15 @@ Code placeholder (create later): `src/datasources/shopify.ts`
 Code placeholder: `src/platforms/meta.ts`
 
 Skeleton:
+
 ```ts
 import { AdPlatformAPI } from "./base";
 import { AdEnvironmentState, AdAction, RewardMetrics } from "../types";
 
 export class MetaAdsAPI extends AdPlatformAPI {
-  constructor(private token: string) { super(); }
+  constructor(private token: string) {
+    super();
+  }
 
   async updateCampaign(adsetId: string, params: any) {
     // PATCH adset budget/bid via Marketing API
@@ -98,6 +103,7 @@ Code placeholder: `src/platforms/tiktok.ts`
 ## 7) Feature Engineering → `AdEnvironmentState`
 
 For each adset-hour, produce:
+
 - `dayOfWeek`, `hourOfDay`: store timezone-aware.
 - `currentBudget`: adset daily budget from API.
 - `targetAgeGroup`, `targetInterests`: from adset config (normalize across platforms).
@@ -113,6 +119,7 @@ Implement a featurizer: `src/features/featurizer.ts` (new) that queries DB and p
 ## 8) Reward Computation (Production)
 
 Recommended canonical reward source: Shopify revenue (joined to adsets), not platform‑reported conversions.
+
 - Profit = revenue − spend per adset/hour.
 - Cost-sensitive objective: add a spend penalty to minimize spend while maximizing profit, for example:
   - r = profit − λ_spend · adSpend, with λ_spend configurable (start 0.1–0.3).
@@ -126,6 +133,7 @@ Implement: `src/services/reward.ts` to compute and persist into `rewards` table 
 ## 9) Real Environment (replace simulator for live runs)
 
 Create `src/environment/realEnvironment.ts` that implements the same step API used by the pipeline:
+
 - Build state from feature store for the current hour.
 - Use policy to propose actions.
 - Apply guardrails (budget caps, delta limits, freeze windows).
@@ -149,6 +157,7 @@ Create `src/environment/realEnvironment.ts` that implements the same step API us
 - Kill switch: immediate rollback to last known budgets.
 
 Cost-aware safety:
+
 - Daily budget target per account/platform; clamp hourly deltas tighter as you approach target.
 - No-sales freeze: if conversions = 0 for N hours or trailing ROAS < threshold, allow only minimum floors (or switch to shadow mode).
 
@@ -157,6 +166,7 @@ Implement a guardrail module: `src/execution/guardrails.ts`.
 ## 12) Execution Pipeline (Shadow → Pilot → Expand)
 
 Add a runner (hourly):
+
 - Shadow mode: compute actions, write to `actions_log` with status `shadow`.
 - Pilot mode: apply only budgets to canary adsets; write status `applied` with API response.
 - Expand: add creative rotations; later, add targeting changes via A/B adsets.

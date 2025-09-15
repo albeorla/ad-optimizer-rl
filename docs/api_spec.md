@@ -55,6 +55,7 @@ Purpose: read hourly reports (spend, impressions, clicks, conversions), apply bu
 ## Data & Storage Contract
 
 Tables (logical):
+
 - `insights_hourly(platform, entity_type, entity_id, ts_hour, impressions, clicks, spend, purchases, revenue)`
 - `orders(order_id, ts, total, currency, attribution_source, adset_external_id, platform)`
 - `rewards(ts_hour, adset_external_id, platform, profit, roas, conversions)`
@@ -65,10 +66,12 @@ Tables (logical):
 ## Reward Function (Cost‑Sensitive)
 
 Baseline (lag‑aware):
+
 - `profit = revenue − spend`
 - `reward = profit/1000 + bonuses(ROAS tiers, conversions) − penalties(overspend)`
 
 Cost penalty and constraint:
+
 - `reward ← reward − λ_spend · adSpend` (λ_spend configurable, default 0.25)
 - `λ_spend ← max(0, λ_spend + η · (spendToDate − budgetTarget)/budgetTarget)` daily (η default 0.05)
 
@@ -96,4 +99,3 @@ Cost penalty and constraint:
 - Decide attribution method (platform vs Shopify‑joined) for reward canonicalization.
 - Provide profit parameters (COGS, fees) or accept revenue‑based proxy initially.
 - Approve peak‑hours window and freeze thresholds.
-
