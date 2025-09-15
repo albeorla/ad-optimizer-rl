@@ -77,23 +77,13 @@ Episode 50 | Total Reward: 8.92 | Profit: $892
 ## 📚 Documentation
 
 - API Integration Spec: `docs/api_spec.md`
-- Production Integration Guide: `docs/real_integration.md`
-- Low-Spend Rollout Guide: `docs/low_spend_rollout.md`
-- PoC Launch Checklist: `docs/poc_checklist.md`
+- TikTok + Shopify Integration & Migration: `docs/integration_migration_tiktok_shopify.md`
 - Mathematical Primer: `docs/math_primer.md`
-- Torch.js DQN Refactor Tutorial: `docs/torchjs_dqn_refactor.md`
+- NN Agent Usage: `docs/nn_agent_usage.md`
 
-### Q-Learning → DQN (Torch.js)
+### Q-Learning → DQN
 
-If you are migrating from the current tabular approach in `src/agent/dqnAgent.ts` to a true DQN, start here:
-
-- Replace Q-table with a Q-network (state → Q-values).
-- Encode states and index actions consistently.
-- Add replay buffer and target network.
-- Train with TD targets and MSE loss.
-- Schedule ε and LR; persist and evaluate.
-
-See `docs/torchjs_dqn_refactor.md` for a concise, step-by-step guide.
+The repo includes a neural DQN agent (`DQNAgentNN`) using TF.js. For guidance on NN usage, see `docs/nn_agent_usage.md`.
 
 ## 🤖 Agent Selection (Tabular vs NN)
 
