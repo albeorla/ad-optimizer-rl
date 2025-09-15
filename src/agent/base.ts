@@ -23,4 +23,12 @@ export abstract class RLAgent {
 
   // Optional lifecycle hook: override in subclasses if needed
   onEpisodeEnd(_episode: number): void {}
+
+  // Optional control hooks
+  setEpsilon(value: number): void {
+    this.epsilon = Math.max(0, Math.min(1, value));
+  }
+  setLearningRate(value: number): void {
+    this.learningRate = Math.max(0, value);
+  }
 }

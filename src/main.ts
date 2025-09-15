@@ -70,6 +70,12 @@ interface ParsedArgs {
   agentKind: string;
   /** Neural network specific configuration options */
   nnOpts: NNOptions;
+  /** Mode of operation: simulator, shadow, or pilot */
+  mode: "sim" | "shadow" | "pilot";
+  /** Skip 24h demo after training */
+  noDemo: boolean;
+  /** Optional model path to load */
+  loadPath?: string;
 }
 
 /**
@@ -98,6 +104,7 @@ function parseArgs(): ParsedArgs {
     return p ? p.split("=")[1] : undefined;
   };
 
+  const _load = getArg("load") ?? process.env.LOAD_MODEL ?? undefined;
   return {
     // Training configuration
     episodes: Number(getArg("episodes") ?? process.env.EPISODES ?? 50),
@@ -111,6 +118,14 @@ function parseArgs(): ParsedArgs {
       process.env.AGENT ??
       "tabular"
     ).toLowerCase(),
+    mode: (
+      (getArg("mode") ?? process.env.MODE ?? "sim").toLowerCase() as
+        | "sim"
+        | "shadow"
+        | "pilot"
+    ),
+    noDemo: (getArg("no-demo") ?? process.env.NO_DEMO ?? "false").toLowerCase() === "true",
+    ...(typeof _load === "string" ? { loadPath: _load } : {}),
 
     // Neural network specific options
     nnOpts: {
@@ -312,32 +327,42 @@ async function main(): Promise<void> {
   printBanner();
 
   // Parse configuration from CLI args and environment variables
-  const { episodes, epsilonDecay, lrDecay, shaping, agentKind, nnOpts } =
+  const { episodes, epsilonDecay, lrDecay, shaping, agentKind, nnOpts, mode, noDemo, loadPath } =
     parseArgs();
 
-  // Create the appropriate agent based on configuration
+  // Route to mode-specific runners
+  if (mode === "shadow") {
+    const { shadowTrain } = await import("./run/shadowTraining");
+    // Optionally load a model and set epsilon low for evaluation-oriented learning
+    const agent = createAgent(agentKind, nnOpts, epsilonDecay, lrDecay);
+    if (loadPath) await agent.load(loadPath);
+    (agent as any).setEpsilon?.(0.1); // prefer exploitation during shadow
+    await shadowTrain(episodes);
+    return;
+  }
+
+  if (mode === "pilot") {
+    // Defer to real runner with guardrails
+    const { main: realMain } = await import("./run/real");
+    // When piloting, prefer a loaded model and exploitation
+    if (loadPath) {
+      const agent = createAgent(agentKind, nnOpts, epsilonDecay, lrDecay);
+      await agent.load(loadPath);
+      (agent as any).setEpsilon?.(0);
+    }
+    await realMain();
+    return;
+  }
+
+  // Default: simulator mode
   const agent = createAgent(agentKind, nnOpts, epsilonDecay, lrDecay);
-
-  // Set up training infrastructure with observers
-  const { environment, pipeline, metricsCollector } = setupPipeline(
-    agent,
-    shaping,
-  );
-
-  // Warm-start agent with initial heuristics if available
+  if (loadPath) await agent.load(loadPath);
+  const { environment, pipeline, metricsCollector } = setupPipeline(agent, shaping);
   warmStartAgent(agent, environment);
-
-  // Train the agent for the specified number of episodes
   await pipeline.train(episodes);
-
-  // Display training metrics summary
   metricsCollector.printSummary();
-
-  // Save the trained model for future use
   await agent.save("final_model.json");
-
-  // Demonstrate the learned policy with a 24-hour simulation
-  await demonstratePolicy(agent);
+  if (!noDemo) await demonstratePolicy(agent);
 }
 
 // Execute main function if this file is run directly (not imported)
