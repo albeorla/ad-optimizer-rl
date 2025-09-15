@@ -7,6 +7,12 @@ import { RLAgent } from "./base";
 // - Add target sync every N steps, epsilon/LR schedules, gradient clipping.
 // - Implement save/load of network weights and optimizer state; keep JSON manifest.
 
+/**
+ * Tabular Q-learning agent with ε-greedy policy and simple replay sampling.
+ *
+ * Uses a discrete, deterministic action grid from encoding.ts and a JSON-backed
+ * Q-table for quick experimentation and interpretability.
+ */
 export class DQNAgent extends RLAgent {
   private qTable: Map<string, Map<string, number>> = new Map();
   private actionSpace: AdAction[];
@@ -44,6 +50,7 @@ export class DQNAgent extends RLAgent {
     return arr[Math.floor(Math.random() * arr.length)]!;
   }
 
+  /** Build a deterministic discrete action space for tabular learning. */
   private generateActionSpace(): AdAction[] {
     const actions: AdAction[] = [];
     // Tighter budget multipliers for small-budget regime alignment
@@ -112,6 +119,7 @@ export class DQNAgent extends RLAgent {
     return interests;
   }
 
+  /** Compact, deterministic key for Q-table indexing. */
   private stateToKey(state: AdEnvironmentState): string {
     return JSON.stringify({
       dow: state.dayOfWeek,
@@ -123,6 +131,7 @@ export class DQNAgent extends RLAgent {
     });
   }
 
+  /** Compact, deterministic key for action-specific Q-values. */
   private actionToKey(action: AdAction): string {
     return JSON.stringify({
       budget: action.budgetAdjustment,
@@ -132,6 +141,7 @@ export class DQNAgent extends RLAgent {
     });
   }
 
+  /** ε-greedy action selection over the tabular Q-values. */
   selectAction(state: AdEnvironmentState): AdAction {
     if (Math.random() < this.epsilon) {
       return this.pickRandom(this.actionSpace);
@@ -155,6 +165,7 @@ export class DQNAgent extends RLAgent {
     }
   }
 
+  /** One-step TD update with optional mini-batch replay when buffer is warm. */
   update(
     state: AdEnvironmentState,
     action: AdAction,
@@ -192,6 +203,7 @@ export class DQNAgent extends RLAgent {
     if (this.experienceReplay.length >= 32) this.replayExperience();
   }
 
+  /** Sample a small batch from replay and apply TD updates. */
   private replayExperience(): void {
     const batchSize = Math.min(32, this.experienceReplay.length);
     const batch = [] as typeof this.experienceReplay;
@@ -218,6 +230,7 @@ export class DQNAgent extends RLAgent {
     }
   }
 
+  /** Serialize the Q-table and scheduling params to a JSON file (console output). */
   save(filepath: string): void {
     const data = {
       qTable: Array.from(this.qTable.entries()).map(([state, actions]) => ({
@@ -231,6 +244,7 @@ export class DQNAgent extends RLAgent {
     console.log(`Model saved to ${filepath}:`, data);
   }
 
+  /** Placeholder for loading a saved model manifest. */
   load(filepath: string): void {
     console.log(`Loading model from ${filepath}`);
   }

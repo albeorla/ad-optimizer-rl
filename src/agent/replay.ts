@@ -1,3 +1,4 @@
+/** One transition tuple for DQN replay buffers. */
 export interface Transition<S extends readonly number[]> {
   s: S;
   aIdx: number;
@@ -6,6 +7,10 @@ export interface Transition<S extends readonly number[]> {
   done: boolean;
 }
 
+/**
+ * Fixed-size ring buffer for off-policy replay sampling. Sampling is uniform
+ * random; replace with prioritized replay as needed.
+ */
 export class ReplayBuffer<S extends readonly number[]> {
   private buf: Transition<S>[] = [];
   private next = 0;
@@ -27,6 +32,7 @@ export class ReplayBuffer<S extends readonly number[]> {
     this.next = (this.next + 1) % this.capacity;
   }
 
+  /** Uniformly sample up to batchSize elements from the buffer. */
   sample(batchSize: number): Transition<S>[] {
     const n = Math.min(batchSize, this.buf.length);
     const out: Transition<S>[] = [];

@@ -4,6 +4,12 @@ import { AdAction, AdEnvironmentState } from "../types";
 // - Subclasses will shift from table updates to neural TD training.
 // - Consider adding optional hooks: onBatchTrained(loss), onTargetSync().
 
+/**
+ * Base class for RL agents.
+ *
+ * Subclasses implement action selection, learning update, and serialization.
+ * Provides basic epsilon/learning-rate controls for runtime adjustments.
+ */
 export abstract class RLAgent {
   protected learningRate: number = 0.01;
   protected discountFactor: number = 0.95;
@@ -21,7 +27,7 @@ export abstract class RLAgent {
   abstract save(filepath: string): void | Promise<void>;
   abstract load(filepath: string): void | Promise<void>;
 
-  // Optional lifecycle hook: override in subclasses if needed
+  /** Optional lifecycle hook: override in subclasses if needed */
   onEpisodeEnd(_episode: number): void {}
 
   // Optional control hooks

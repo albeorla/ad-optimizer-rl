@@ -5,6 +5,12 @@ import {
 } from "../datasources/shopify";
 import { RealTikTokAdsAPI } from "../platforms/realTikTok";
 
+/**
+ * Shadow-mode environment that composes real Shopify revenue and TikTok ad spend
+ * into RewardMetrics, without performing any write operations to platforms.
+ *
+ * Use this to validate policies in production-like conditions safely.
+ */
 export class RealShadowEnvironment {
   private shopify: RealShopifyDataSource;
   private tiktok: RealTikTokAdsAPI;
@@ -48,7 +54,10 @@ export class RealShadowEnvironment {
     return this.currentState;
   }
 
-  // Compose real metrics from Shopify (revenue, conversions) and TikTok (ad spend)
+  /**
+   * Compose real metrics from Shopify (revenue, conversions) and TikTok (ad spend)
+   * for a given time window, computing gross margin, profit, ROAS and margin-ROAS.
+   */
   private async composeMetrics(window: Win): Promise<RewardMetrics> {
     const sales = await this.shopify.getSales(window);
     const ad = await this.tiktok.getAdMetricsForWindow(window);
@@ -70,6 +79,7 @@ export class RealShadowEnvironment {
     };
   }
 
+  /** Margin-ROAS based reward shaping with overspend penalties. */
   private calculateReward(metrics: RewardMetrics): number {
     let reward = metrics.profit / 1000;
     const marginRoas =
@@ -85,6 +95,10 @@ export class RealShadowEnvironment {
     return reward;
   }
 
+  /**
+   * One environment step: clamp proposed budget, fetch real metrics for last hour,
+   * compute reward, and advance time. No writes are performed.
+   */
   async step(
     action: AdAction,
   ): Promise<[AdEnvironmentState, number, boolean, RewardMetrics]> {

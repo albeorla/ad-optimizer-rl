@@ -6,6 +6,10 @@ import { TrainingObserver } from "../observers/types";
 // - Surface per-batch loss, TD error stats to observers (extend metrics payload accordingly).
 // - Add periodic target network sync signal; optionally evaluation episodes with epsilon=0.
 
+/**
+ * Training controller that connects an RL agent with an environment and
+ * dispatches step/episode events to observers.
+ */
 export class TrainingPipeline {
   private agent: RLAgent;
   private environment: AdEnvironmentSimulator;
@@ -16,16 +20,19 @@ export class TrainingPipeline {
     this.environment = environment;
   }
 
+  /** Register a training observer for episode-level callbacks. */
   addObserver(observer: TrainingObserver): void {
     this.observers.push(observer);
   }
 
+  /** Notify all observers that an episode has completed. */
   notifyObservers(episode: number, totalReward: number, metrics: any): void {
     for (const observer of this.observers) {
       observer.onEpisodeComplete(episode, totalReward, metrics);
     }
   }
 
+  /** Run N training episodes, saving periodic checkpoints if provided by agent. */
   async train(numEpisodes: number): Promise<void> {
     console.log(`\n🚀 Starting RL Training for ${numEpisodes} episodes...\n`);
 

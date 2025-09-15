@@ -1,9 +1,9 @@
 import { AdAction, AdEnvironmentState, RewardMetrics } from "../types";
 import { AdPlatformAPI } from "./base";
-// DQN-REFAC TODO:
-// - No model changes; keep behavior complementary to TikTok for diversity in training.
-// - Revisit shapingStrength to calibrate reward scales if needed.
-
+/**
+ * Synthetic Instagram Ads adapter used by the simulator. Behavior complements
+ * TikTok’s to create diversity in signals for training.
+ */
 export class MockInstagramAdsAPI extends AdPlatformAPI {
   private shapingStrength: number;
   private productPrice: number;
@@ -27,6 +27,7 @@ export class MockInstagramAdsAPI extends AdPlatformAPI {
     return this.generateInstagramMetrics();
   }
 
+  /** Generate synthetic RewardMetrics for a single step given state and action. */
   simulatePerformance(
     state: AdEnvironmentState,
     action: AdAction,

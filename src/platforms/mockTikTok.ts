@@ -1,9 +1,9 @@
 import { AdAction, AdEnvironmentState, RewardMetrics } from "../types";
 import { AdPlatformAPI } from "./base";
-// DQN-REFAC TODO:
-// - No model changes; simulator should continue to produce realistic signals.
-// - Keep demographic/creative/time sensitivities consistent with docs and encoder.
-
+/**
+ * Synthetic TikTok Ads adapter used by the simulator. Encodes platform-specific
+ * multipliers for demographics, creative types, and time-of-day effects.
+ */
 export class MockTikTokAdsAPI extends AdPlatformAPI {
   private campaigns: Map<string, any> = new Map();
   private shapingStrength: number;
@@ -36,6 +36,7 @@ export class MockTikTokAdsAPI extends AdPlatformAPI {
     return this.generateMockMetrics();
   }
 
+  /** Generate synthetic RewardMetrics for a single step given state and action. */
   simulatePerformance(
     state: AdEnvironmentState,
     action: AdAction,

@@ -1,10 +1,7 @@
 import { AdPlatformAPI } from "./base";
 import { MockTikTokAdsAPI } from "./mockTikTok";
 import { MockInstagramAdsAPI } from "./mockInstagram";
-// DQN-REFAC TODO:
-// - Factory remains the same; ensure real adapters produce states compatible with encoder.
-// - Optionally expose a feature schema registry per platform for validation.
-
+/** Simple registry/factory for platform adapters. */
 export class AdPlatformFactory {
   private static platforms: Map<string, AdPlatformAPI> = new Map<
     string,

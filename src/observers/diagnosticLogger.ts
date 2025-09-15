@@ -1,8 +1,8 @@
 import { TrainingObserver } from "./types";
-// DQN-REFAC TODO:
-// - Extend diagnostics to print avgLoss, replay size, target sync cadence.
-// - Replace Q-Table metrics with NN metrics when DQN is enabled.
-
+/**
+ * Verbose observer that prints additional diagnostics like epsilon, Q-table size,
+ * unique actions, and an ad-hoc profit breakdown when available.
+ */
 export class DiagnosticLogger implements TrainingObserver {
   onEpisodeComplete(episode: number, totalReward: number, metrics: any): void {
     const eps = metrics?.epsilon ?? "n/a";

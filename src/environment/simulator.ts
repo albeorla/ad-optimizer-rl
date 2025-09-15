@@ -7,6 +7,13 @@ import { AdPlatformAPI } from "../platforms/base";
 // - If you add/rename features, update `src/agent/encoding.ts` and docs accordingly.
 // - Consider exposing a 'feature view' for real adapters to ensure parity with simulator.
 
+/**
+ * Offline ad environment simulator.
+ *
+ * Produces synthetic performance signals per platform and computes reward with
+ * margin-ROAS shaping and overspend penalties. Supports constraining platforms,
+ * creatives, and budget clamps to mirror real-world constraints.
+ */
 export class AdEnvironmentSimulator {
   private platforms: Map<string, AdPlatformAPI>;
   private currentState: AdEnvironmentState;
@@ -115,6 +122,7 @@ export class AdEnvironmentSimulator {
     return this.currentState;
   }
 
+  /** Execute one simulated hour and return next state, reward, done, and metrics. */
   step(
     action: AdAction,
   ): [AdEnvironmentState, number, boolean, import("../types").RewardMetrics] {
@@ -159,7 +167,7 @@ export class AdEnvironmentSimulator {
     return [this.currentState, reward, done, metrics];
   }
 
-  // Reward shaping to guide learning toward good ROAS and sensible spend
+  // Reward shaping to guide learning toward good margin-ROAS and sensible spend
   private calculateReward(metrics: import("../types").RewardMetrics): number {
     // Base reward on net profit (assumes platform metrics.profit already includes COGS)
     let reward = metrics.profit / 1000; // normalize
@@ -181,6 +189,7 @@ export class AdEnvironmentSimulator {
     return reward;
   }
 
+  /** Advance the simulator’s internal clock and roll state features forward. */
   private updateState(action: AdAction): AdEnvironmentState {
     const newState = { ...this.currentState };
     newState.hourOfDay = (newState.hourOfDay + 1) % 24;

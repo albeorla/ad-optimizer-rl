@@ -1,15 +1,23 @@
 import { RewardMetrics } from "../types";
 
+/** Closed-open time window [start, end) to query data for. */
 export interface TimeWindow {
   start: Date;
   end: Date;
 }
 
+/** Minimal Shopify aggregation for revenue and attributed conversions. */
 export interface ShopifySales {
   revenue: number; // total gross sales in USD
   conversions: number; // count of orders attributable to ads (approx)
 }
 
+/**
+ * Shopify Admin API client (scaffold).
+ *
+ * Replace stubs with real HTTP requests using API creds. Responsible for
+ * aggregating revenue and unit counts per time window.
+ */
 export class RealShopifyDataSource {
   private apiKey: string | undefined;
   private storeDomain: string | undefined;

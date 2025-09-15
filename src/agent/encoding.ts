@@ -1,5 +1,9 @@
-// Deterministic state and action encoders for DQN
-// See docs/torchjs_dqn_refactor.md for rationale and details.
+/**
+ * Deterministic state and action encoders for DQN.
+ *
+ * See docs/torchjs_dqn_refactor.md for rationale and details.
+ * Keep category orders and vocabularies stable across training and production.
+ */
 
 import { AdAction, AdEnvironmentState } from "../types";
 
@@ -50,6 +54,7 @@ function normalizeBudget(usd: number): number {
   return clamp(usd / 100, 0, 2.0); // e.g., $0–$200 → 0–2
 }
 
+/** Encode AdEnvironmentState into a normalized feature vector. */
 export function encodeState(state: AdEnvironmentState): number[] {
   const [sinH, cosH] = cyclicalPair(state.hourOfDay, 24);
   const [sinD, cosD] = cyclicalPair(state.dayOfWeek, 7);
@@ -88,6 +93,7 @@ export function encodeState(state: AdEnvironmentState): number[] {
 
 // Discrete action grid (keep ordering stable)
 // Tighter budget multipliers for small-budget regimes (e.g., ~$30/day)
+/** Small, safe multiplicative budget adjustments for hourly control. */
 export const BUDGET_STEPS = [0.95, 1.0, 1.05] as const;
 export const BID_STRATEGIES = ["CPC", "CPM", "CPA"] as const;
 // Optional: reduce interests to canonical bundles to limit action space
@@ -115,6 +121,7 @@ const selectedCreatives =
     ? [LOCKED_CREATIVE]
     : Array.from(CREATIVE_TYPES);
 
+/** Deterministic discrete action grid built at module load. */
 export const ACTIONS: AdAction[] = [];
 for (const b of BUDGET_STEPS)
   for (const age of AGE_GROUPS)
@@ -131,6 +138,7 @@ for (const b of BUDGET_STEPS)
               platform: pf as any,
             });
 
+/** Deterministic index for an action in the ACTIONS grid. */
 export function actionToIndex(a: AdAction): number {
   return ACTIONS.findIndex(
     (x) =>
@@ -143,6 +151,7 @@ export function actionToIndex(a: AdAction): number {
   );
 }
 
+/** Safe reverse mapping from index to action in the ACTIONS grid. */
 export function indexToAction(idx: number): AdAction {
   if (ACTIONS.length === 0) throw new Error("ACTIONS not initialized");
   const clamped = Math.max(0, Math.min(ACTIONS.length - 1, idx));

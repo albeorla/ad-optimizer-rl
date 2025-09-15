@@ -14,6 +14,12 @@ export interface TimeWindow {
   end: Date;
 }
 
+/**
+ * TikTok Ads API adapter (scaffold).
+ *
+ * Replace stubs with real API requests. In shadow mode, `updateCampaign` should
+ * not perform writes; log would-apply changes instead.
+ */
 export class RealTikTokAdsAPI extends AdPlatformAPI {
   private apiKey: string | undefined;
 

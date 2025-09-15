@@ -4,6 +4,10 @@ import { MetricsCollector } from "../observers/metricsCollector";
 import { DiagnosticLogger } from "../observers/diagnosticLogger";
 import { RealShadowEnvironment } from "../environment/realShadow";
 import { AdEnvironmentState } from "../types";
+/**
+ * Shadow-mode training loop that reads real metrics via RealShadowEnvironment
+ * and updates the agent without performing any platform writes.
+ */
 
 async function shadowTrain(episodes: number = 10) {
   console.log("=".repeat(60));

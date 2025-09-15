@@ -1,4 +1,7 @@
 import { TrainingObserver } from "./types";
+/**
+ * Accumulates episode rewards and prints a simple summary at the end of runs.
+ */
 // DQN-REFAC TODO:
 // - Track batch-level stats: avgLoss, maxTD, qValue stats, replay size, targetSync count.
 // - Expose rolling windows for dashboarding and anomaly detection.
