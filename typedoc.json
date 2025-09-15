@@ -1,0 +1,15 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "expand",
+  "entryPoints": ["src"],
+  "tsconfig": "tsconfig.json",
+  "out": "docs/api",
+  "name": "T-Shirt Ad Optimization RL",
+  "includeVersion": true,
+  "excludePrivate": false,
+  "excludeProtected": false,
+  "excludeExternals": false,
+  "categorizeByGroup": true,
+  "readme": "none"
+}
+

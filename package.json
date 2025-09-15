@@ -14,8 +14,9 @@
     "docs:generate": "typedoc --out docs/api src --entryPoints src/index.ts",
     "docs:serve": "npx http-server docs/api -p 8080 -o",
     "docs:clean": "rm -rf docs/api",
-    "docs:build": "npm run docs:clean && npm run docs:generate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "docs:build": "npm run docs",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs": "typedoc --options typedoc.json"
   },
   "keywords": [],
   "author": "",
