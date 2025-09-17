@@ -23,6 +23,7 @@ export abstract class RLAgent {
     action: AdAction,
     reward: number,
     nextState: AdEnvironmentState,
+    done: boolean,
   ): void;
   abstract save(filepath: string): void | Promise<void>;
   abstract load(filepath: string): void | Promise<void>;

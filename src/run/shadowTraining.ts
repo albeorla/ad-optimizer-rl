@@ -1,4 +1,5 @@
 import { DQNAgent } from "../agent/dqnAgent";
+import { RLAgent } from "../agent/base";
 import { ConsoleLogger } from "../observers/consoleLogger";
 import { MetricsCollector } from "../observers/metricsCollector";
 import { DiagnosticLogger } from "../observers/diagnosticLogger";
@@ -9,12 +10,12 @@ import { AdEnvironmentState } from "../types";
  * and updates the agent without performing any platform writes.
  */
 
-async function shadowTrain(episodes: number = 10) {
+async function shadowTrain(episodes: number = 10, providedAgent?: RLAgent) {
   console.log("=".repeat(60));
   console.log("🕶️ SHADOW-MODE TRAINING (Real Data Scaffolding)");
   console.log("=".repeat(60));
 
-  const agent = new DQNAgent({ epsilonDecay: 0.995, lrDecay: 0.99 });
+  const agent = providedAgent ?? new DQNAgent({ epsilonDecay: 0.995, lrDecay: 0.99 });
   const env = new RealShadowEnvironment();
 
   const logger = new ConsoleLogger();
@@ -33,7 +34,7 @@ async function shadowTrain(episodes: number = 10) {
     while (!done) {
       const action = agent.selectAction(state);
       const [nextState, reward, episodeDone, metrics] = await env.step(action);
-      agent.update(state, action, reward, nextState);
+      agent.update(state, action, reward, nextState, episodeDone);
       totalReward += reward;
       stepCount++;
       state = nextState;

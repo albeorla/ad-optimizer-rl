@@ -337,7 +337,7 @@ async function main(): Promise<void> {
     const agent = createAgent(agentKind, nnOpts, epsilonDecay, lrDecay);
     if (loadPath) await agent.load(loadPath);
     (agent as any).setEpsilon?.(0.1); // prefer exploitation during shadow
-    await shadowTrain(episodes);
+    await shadowTrain(episodes, agent);
     return;
   }
 

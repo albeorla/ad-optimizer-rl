@@ -49,7 +49,7 @@ export class TrainingPipeline {
         const action = this.agent.selectAction(state);
         const [nextState, reward, episodeDone, metrics] =
           this.environment.step(action);
-        this.agent.update(state, action, reward, nextState);
+        this.agent.update(state, action, reward, nextState, episodeDone);
         totalReward += reward;
         stepCount++;
         state = nextState;

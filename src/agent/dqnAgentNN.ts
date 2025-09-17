@@ -101,6 +101,7 @@ export class DQNAgentNN extends RLAgent {
     action: AdAction,
     reward: number,
     nextState: AdEnvironmentState,
+    done: boolean,
   ): void {
     const s = encodeState(state) as Vec;
     const sp = encodeState(nextState) as Vec;
@@ -111,7 +112,7 @@ export class DQNAgentNN extends RLAgent {
       return;
     }
 
-    const t: Transition<Vec> = { s, aIdx, r: reward, sp, done: false };
+    const t: Transition<Vec> = { s, aIdx, r: reward, sp, done };
     this.replay.push(t);
     this.stepCounter++;
 
@@ -148,7 +149,7 @@ export class DQNAgentNN extends RLAgent {
       const b = batch[i]!;
       const qpi = Qp[i] ?? new Array(A).fill(0);
       const maxQp = qpi.reduce((m, v) => (v > m ? v : m), -Infinity);
-      y[i] = b.r + this.hp.gamma * (b.done ? 0 : maxQp);
+      y[i] = b.r + (b.done ? 0 : this.hp.gamma * maxQp);
       // qsa is only for reporting loss; QNet will recompute internally during train
       qsa[i] = 0;
     }

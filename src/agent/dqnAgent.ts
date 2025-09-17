@@ -21,6 +21,7 @@ export class DQNAgent extends RLAgent {
     action: AdAction;
     reward: number;
     nextState: AdEnvironmentState;
+    done: boolean;
   }> = [];
   private maxReplaySize: number = 1000;
   private initialLearningRate: number = this.learningRate;
@@ -85,14 +86,16 @@ export class DQNAgent extends RLAgent {
       for (const age of ageGroups) {
         for (const creative of creativeTypes as any) {
           for (const platform of platforms as any) {
-            actions.push({
-              budgetAdjustment: budget,
-              targetAgeGroup: age,
-              targetInterests: this.generateInterests(),
-              creativeType: creative,
-              bidStrategy: this.pickRandom(bidStrategies),
-              platform,
-            });
+            for (const bidStrategy of bidStrategies) {
+              actions.push({
+                budgetAdjustment: budget,
+                targetAgeGroup: age,
+                targetInterests: this.generateInterests(),
+                creativeType: creative,
+                bidStrategy,
+                platform,
+              });
+            }
           }
         }
       }
@@ -124,7 +127,7 @@ export class DQNAgent extends RLAgent {
     return JSON.stringify({
       dow: state.dayOfWeek,
       hod: state.hourOfDay,
-      budget: Math.round(state.currentBudget / 100),
+      budget: Number(state.currentBudget.toFixed(2)),
       age: state.targetAgeGroup,
       creative: state.creativeType,
       platform: state.platform,
@@ -171,8 +174,9 @@ export class DQNAgent extends RLAgent {
     action: AdAction,
     reward: number,
     nextState: AdEnvironmentState,
+    done: boolean,
   ): void {
-    this.experienceReplay.push({ state, action, reward, nextState });
+    this.experienceReplay.push({ state, action, reward, nextState, done });
     if (this.experienceReplay.length > this.maxReplaySize)
       this.experienceReplay.shift();
 
@@ -187,10 +191,12 @@ export class DQNAgent extends RLAgent {
     const currentQ = this.qTable.get(stateKey)!.get(actionKey) || 0;
 
     let maxNextQ = 0;
-    const nextStateQValues = this.qTable.get(nextStateKey);
-    if (nextStateQValues) {
-      for (const qValue of nextStateQValues.values())
-        maxNextQ = Math.max(maxNextQ, qValue);
+    if (!done) {
+      const nextStateQValues = this.qTable.get(nextStateKey);
+      if (nextStateQValues) {
+        for (const qValue of nextStateQValues.values())
+          maxNextQ = Math.max(maxNextQ, qValue);
+      }
     }
 
     const newQ =
@@ -217,10 +223,12 @@ export class DQNAgent extends RLAgent {
       if (!this.qTable.has(stateKey)) this.qTable.set(stateKey, new Map());
       const currentQ = this.qTable.get(stateKey)!.get(actionKey) || 0;
       let maxNextQ = 0;
-      const nextStateQValues = this.qTable.get(nextStateKey);
-      if (nextStateQValues) {
-        for (const qValue of nextStateQValues.values())
-          maxNextQ = Math.max(maxNextQ, qValue);
+      if (!experience.done) {
+        const nextStateQValues = this.qTable.get(nextStateKey);
+        if (nextStateQValues) {
+          for (const qValue of nextStateQValues.values())
+            maxNextQ = Math.max(maxNextQ, qValue);
+        }
       }
       const newQ =
         currentQ +
