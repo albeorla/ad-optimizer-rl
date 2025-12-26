@@ -458,5 +458,5 @@ The ad-optimizer-rl system combines all these concepts to make intelligent, prof
 
 ---
 
-*Last updated: December 2024*
+*Last updated: December 2025*
 *For questions about specific implementations, see the source code in `/src/`*

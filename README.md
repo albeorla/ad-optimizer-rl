@@ -37,23 +37,50 @@ This repo uses a modular TypeScript structure:
 
 ```
 src/
-  agent/
-    base.ts            # RLAgent abstract base
-    dqnAgent.ts        # DQNAgent implementation
-  environment/
-    simulator.ts       # Ad environment simulator
-  observers/
-    types.ts           # TrainingObserver interface
-    consoleLogger.ts   # Console logger observer
-    metricsCollector.ts# Metrics collector observer
-  platforms/
-    base.ts            # AdPlatformAPI abstract base
-    factory.ts         # Platform factory
-    mockTikTok.ts      # TikTok mock API
-    mockInstagram.ts   # Instagram mock API
-  types.ts             # Shared types (state/actions/metrics)
-  index.ts             # Barrel exports
-  main.ts              # CLI/entry point (training demo)
+├── agent/                    # RL Agents
+│   ├── base.ts               # RLAgent abstract base class
+│   ├── dqnAgent.ts           # Tabular Q-learning agent
+│   ├── dqnAgentNN.ts         # Neural network DQN agent
+│   ├── cqlAgent.ts           # Conservative Q-Learning (offline RL)
+│   ├── encoding.ts           # State/action encoding utilities
+│   ├── replay.ts             # Experience replay buffers
+│   └── nn/
+│       └── qnet.ts           # Q-network architecture
+├── control/                  # Control Systems
+│   └── PidController.ts      # PID controllers for budget pacing
+├── data/                     # Data Handling
+│   └── AttributionBuffer.ts  # Delayed feedback & attribution
+├── environment/              # Environments
+│   ├── simulator.ts          # Offline training simulator
+│   └── realShadow.ts         # Shadow mode (real data, no writes)
+├── evaluation/               # Policy Evaluation
+│   └── OPE.ts                # Offline Policy Evaluation (IPS, SNIPS, DR)
+├── execution/                # Safety & Execution
+│   ├── guardrails.ts         # Budget constraints & limits
+│   └── SafetyLayer.ts        # Circuit breaker, anomaly detection
+├── observers/                # Training Observers
+│   ├── types.ts              # TrainingObserver interface
+│   ├── consoleLogger.ts      # Console output
+│   ├── metricsCollector.ts   # Metrics aggregation
+│   └── diagnosticLogger.ts   # Detailed diagnostics
+├── platforms/                # Platform Adapters
+│   ├── base.ts               # AdPlatformAPI abstract base
+│   ├── factory.ts            # Platform factory
+│   ├── mockTikTok.ts         # TikTok simulator
+│   ├── mockInstagram.ts      # Instagram simulator
+│   └── realTikTok.ts         # Real TikTok API (scaffold)
+├── run/                      # Execution Runners
+│   ├── real.ts               # Production/pilot runner
+│   └── shadowTraining.ts     # Shadow mode runner
+├── training/                 # Training Pipeline
+│   └── pipeline.ts           # Episode management, checkpointing
+├── types/                    # Extended Types
+│   └── EnrichedState.ts      # Context-aware state representation
+├── datasources/              # Data Sources
+│   └── shopify.ts            # Shopify API connector (scaffold)
+├── types.ts                  # Core types (state/actions/metrics)
+├── index.ts                  # Barrel exports (public API)
+└── main.ts                   # CLI entry point
 ```
 
 Build and run commands:
@@ -76,14 +103,22 @@ Episode 50 | Total Reward: 8.92 | Profit: $892
 
 ## 📚 Documentation
 
-- API Integration Spec: `docs/api_spec.md`
-- TikTok + Shopify Integration & Migration: `docs/integration_migration_tiktok_shopify.md`
-- Mathematical Primer: `docs/math_primer.md`
-- NN Agent Usage: `docs/nn_agent_usage.md`
+| Document | Description |
+|----------|-------------|
+| [`docs/USER_JOURNEY_GUIDE.md`](docs/USER_JOURNEY_GUIDE.md) | Visual guide with ASCII diagrams explaining the entire system |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture and component overview |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | Comprehensive ad tech & RL terminology |
+| [`docs/math_primer.md`](docs/math_primer.md) | Mathematical foundations (MDP, Q-learning, rewards) |
+| [`docs/api_spec.md`](docs/api_spec.md) | API integration specification |
+| [`docs/integration_migration_tiktok_shopify.md`](docs/integration_migration_tiktok_shopify.md) | TikTok + Shopify integration guide |
+| [`docs/nn_agent_usage.md`](docs/nn_agent_usage.md) | Neural network agent usage |
 
-### Q-Learning → DQN
+### Q-Learning → DQN → CQL
 
-The repo includes a neural DQN agent (`DQNAgentNN`) using TF.js. For guidance on NN usage, see `docs/nn_agent_usage.md`.
+The repo includes multiple agent types:
+- **DQNAgent**: Tabular Q-learning with experience replay
+- **DQNAgentNN**: Neural network DQN using TensorFlow.js
+- **CQLAgent**: Conservative Q-Learning for offline RL (safe deployment from historical data)
 
 ## 🤖 Agent Selection (Tabular vs NN)
 
@@ -166,13 +201,28 @@ RL agents discover optimal strategies through exploration and exploitation, cont
 - **Self-learning optimization** without manual rules
 - **Multi-platform orchestration** across TikTok, Instagram, and Shopify
 - **24/7 autonomous operation** with safety guardrails
+- **Three operation modes**: Simulator, Shadow (real data, no writes), Pilot (live bidding)
 
-### 📊 Advanced Capabilities
+### 📊 Advanced RL Capabilities
 
-- **Deep Q-Network (DQN)** with experience replay
-- **Real-time adaptation** to market conditions
-- **A/B testing integration** for policy validation
+- **Deep Q-Network (DQN)** with experience replay (tabular and neural network)
+- **Conservative Q-Learning (CQL)** for safe offline RL deployment
+- **Double DQN** to reduce Q-value overestimation
 - **Multi-objective optimization** (profit, ROAS, CPA)
+
+### 🎛️ Production-Grade Control Systems
+
+- **PID Controllers** for smooth budget pacing
+- **Dual PID** for simultaneous budget + CPA control
+- **Delayed Feedback Handling** with importance sampling (GDFM)
+- **Offline Policy Evaluation (OPE)** using IPS, SNIPS, and Doubly Robust estimators
+
+### 🛡️ Safety & Reliability
+
+- **Circuit Breaker** pattern for automatic fallback on failures
+- **Anomaly Detection** for win rate, ROAS, CPA, CTR/CVR monitoring
+- **Bid Validation** with hard constraints
+- **Guardrails** for daily cap, hourly delta limits, peak hours
 
 ### 🏗️ Enterprise Architecture
 
@@ -185,8 +235,8 @@ RL agents discover optimal strategies through exploration and exploitation, cont
 
 - **TypeScript** for type safety
 - **Mock APIs** for development/testing
-- **Comprehensive testing** suite
-- **Detailed documentation** and examples
+- **Comprehensive documentation** with visual guides
+- **Barrel exports** for clean public API
 
 ## 🏛️ Architecture
 
@@ -230,46 +280,45 @@ graph TB
 ### Component Architecture
 
 ```
-src/
-├── core/
-│   ├── interfaces/           # TypeScript interfaces
-│   │   ├── IAdEnvironment.ts
-│   │   ├── IAgent.ts
-│   │   └── IPlatformAPI.ts
-│   ├── agents/               # RL Agent implementations
-│   │   ├── DQNAgent.ts      # Deep Q-Learning
-│   │   ├── PPOAgent.ts      # Proximal Policy Optimization
-│   │   └── A2CAgent.ts      # Advantage Actor-Critic
-│   └── environment/          # Environment logic
-│       ├── AdEnvironment.ts
-│       ├── StateManager.ts
-│       └── RewardCalculator.ts
-├── platforms/                # Platform integrations
-│   ├── tiktok/
-│   │   ├── TikTokAPI.ts
-│   │   └── TikTokSimulator.ts
-│   ├── instagram/
-│   │   ├── InstagramAPI.ts
-│   │   └── InstagramSimulator.ts
-│   └── factory/
-│       └── PlatformFactory.ts
-├── training/                 # Training pipeline
-│   ├── TrainingPipeline.ts
-│   ├── observers/
-│   │   ├── ConsoleLogger.ts
-│   │   ├── MetricsCollector.ts
-│   │   └── TensorBoard.ts
-│   └── replay/
-│       └── ExperienceReplay.ts
-├── utils/                    # Utilities
-│   ├── config/
-│   │   └── Configuration.ts
-│   ├── logging/
-│   │   └── Logger.ts
-│   └── metrics/
-│       └── MetricsCalculator.ts
-└── main.ts                   # Entry point
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Ad-Optimizer-RL                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐   │
+│  │   State     │    │     RL      │    │   Safety    │    │  Platform   │   │
+│  │ Enrichment  │───▶│   Agent     │───▶│   Layer     │───▶│    API      │   │
+│  │   Engine    │    │  (DQN/CQL)  │    │             │    │             │   │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘   │
+│         ▲                  │                  │                  │          │
+│         │                  │                  │                  │          │
+│         │           ┌──────▼──────┐    ┌──────▼──────┐           │          │
+│         │           │    PID      │    │   Circuit   │           │          │
+│         │           │ Controller  │    │   Breaker   │           │          │
+│         │           └─────────────┘    └─────────────┘           │          │
+│         │                                                        │          │
+│  ┌──────┴──────────────────────────────────────────────────────┴──────┐    │
+│  │                        Attribution Buffer                          │    │
+│  │              (Delayed Feedback Model / GDFM)                       │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │                    Offline Policy Evaluation                        │    │
+│  │              (IPS / SNIPS / Doubly Robust / MDA)                   │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key Modules:**
+
+| Module | Location | Purpose |
+|--------|----------|---------|
+| **RL Agents** | `src/agent/` | DQN (tabular), DQNAgentNN (neural), CQLAgent (offline) |
+| **PID Control** | `src/control/` | Budget pacing, CPA control, bid modifiers |
+| **Safety Layer** | `src/execution/` | Circuit breaker, anomaly detection, guardrails |
+| **Attribution** | `src/data/` | Delayed feedback handling, importance sampling |
+| **OPE** | `src/evaluation/` | Validate policies before deployment |
+| **Enriched State** | `src/types/` | Context-aware bidding features |
 
 ### Design Patterns
 
@@ -1041,40 +1090,44 @@ npm run profile:cpu
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation (Current)
+### Phase 1: Foundation ✅
 
-- ✅ Basic DQN implementation
-- ✅ Mock platform APIs
-- ✅ Training pipeline
-- ✅ Metrics collection
+- ✅ Basic DQN implementation (tabular Q-learning)
+- ✅ Mock platform APIs (TikTok, Instagram)
+- ✅ Training pipeline with observers
+- ✅ Metrics collection and diagnostics
 
-### Phase 2: Advanced RL (Q1 2025)
+### Phase 2: Production-Grade RTB ✅
 
-- ⬜ Proximal Policy Optimization (PPO)
-- ⬜ Multi-agent competition
-- ⬜ Continuous action spaces
-- ⬜ Hierarchical RL for campaign strategies
+- ✅ Neural network DQN agent (TensorFlow.js)
+- ✅ Conservative Q-Learning (CQL) for offline RL
+- ✅ PID controllers for budget pacing
+- ✅ Delayed feedback handling (GDFM)
+- ✅ Offline Policy Evaluation (IPS, SNIPS, DR)
+- ✅ Safety layer (circuit breaker, anomaly detection)
+- ✅ State enrichment engine
+- ✅ Shadow mode for real data testing
 
-### Phase 3: Production Features (Q2 2025)
+### Phase 3: Real Integrations (In Progress)
 
-- ⬜ Real API integrations
+- ⬜ Complete TikTok API integration
+- ⬜ Complete Shopify API integration
+- ⬜ Production pilot deployment
 - ⬜ A/B testing framework
-- ⬜ AutoML for hyperparameter tuning
-- ⬜ Real-time streaming data pipeline
 
-### Phase 4: Scale & Intelligence (Q3 2025)
+### Phase 4: Scale & Intelligence (Planned)
 
 - ⬜ Distributed training (Ray/RLlib)
 - ⬜ Transfer learning between businesses
-- ⬜ Natural language strategy descriptions
-- ⬜ Automated creative generation
+- ⬜ AutoML for hyperparameter tuning
+- ⬜ Multi-agent competition
 
-### Phase 5: Platform Expansion (Q4 2025)
+### Phase 5: Platform Expansion (Planned)
 
 - ⬜ Google Ads integration
-- ⬜ Amazon Advertising
-- ⬜ LinkedIn Ads
+- ⬜ Meta/Facebook Ads integration
 - ⬜ Cross-platform budget optimization
+- ⬜ Automated creative generation
 
 ## 🤝 Contributing
 
@@ -1158,15 +1211,26 @@ furnished to do so, subject to the following conditions:
   <i>Maximizing profits through intelligent automation</i>
 </div>
 
-## Project Updates (Modularization + Real Runner)
+## Project Updates
 
-- Modularized codebase with separate modules for agent, environment, platforms, observers, training, and a barrel export in `src/index.ts`.
-- Added simulator improvements (realistic spend/revenue logic, reward shaping, peak-hour boosts).
-- Added real runner skeleton: `npm run run:real` with flags for `--mode`, `--daily-budget-target`, `--peak-hours`, `--delta-max`, `--lambda-spend`, `--lagrange-step`, `--canary-list`.
-- Cost-sensitive objective (λ-spend) to minimize spend while maximizing profit.
-- Safety guardrails starter (`src/execution/guardrails.ts`), to enforce daily cap, delta clamp, peak hours, and freeze conditions.
-- Documentation added:
-  - `docs/api_spec.md`
-  - `docs/real_integration.md`
-  - `docs/low_spend_rollout.md`
-  - `docs/poc_checklist.md`
+### Latest (December 2024)
+
+**Production-Grade RTB Infrastructure:**
+- **Conservative Q-Learning (CQL)**: Offline RL for safe deployment from historical data
+- **PID Controllers**: Budget pacing, CPA control, dual PID for simultaneous constraints
+- **Delayed Feedback Model (GDFM)**: Handle 24+ hour conversion delays with importance sampling
+- **Offline Policy Evaluation (OPE)**: IPS, SNIPS, Doubly Robust, MDA for pre-deployment validation
+- **Safety Layer**: Circuit breaker, anomaly detection, bid validation
+- **State Enrichment**: Context-aware features (budgetary, temporal, competitive, performance)
+
+**Documentation:**
+- `docs/USER_JOURNEY_GUIDE.md` - Visual guide with ASCII diagrams
+- `docs/ARCHITECTURE.md` - System architecture overview
+- `docs/GLOSSARY.md` - Comprehensive ad tech & RL terminology
+
+### Previous Updates
+
+- Modularized codebase with separate modules for agent, environment, platforms, observers, training
+- Real runner skeleton: `npm run run:real` with flags for `--mode`, `--daily-budget-target`, etc.
+- Cost-sensitive objective (λ-spend) to minimize spend while maximizing profit
+- Safety guardrails (`src/execution/guardrails.ts`) for daily cap, delta clamp, peak hours
