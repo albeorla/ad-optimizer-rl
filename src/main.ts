@@ -359,7 +359,13 @@ async function main(): Promise<void> {
   if (loadPath) await agent.load(loadPath);
   const { environment, pipeline, metricsCollector } = setupPipeline(agent, shaping);
   warmStartAgent(agent, environment);
-  await pipeline.train(episodes);
+  await pipeline.train({
+    numEpisodes: episodes,
+    checkpointFrequency: 100,
+    evaluationFrequency: Math.max(10, Math.floor(episodes / 10)),
+    evaluationEpisodes: 3,
+    checkpointDir: ".",
+  });
   metricsCollector.printSummary();
   await agent.save("final_model.json");
   if (!noDemo) await demonstratePolicy(agent);
