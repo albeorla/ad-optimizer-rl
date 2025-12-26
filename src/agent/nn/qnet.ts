@@ -1,22 +1,51 @@
-// Torch.js Q-Network interfaces (stubs)
-// Implementations will wrap Torch.js models; this file defines the surface area.
+/**
+ * Q-Network interfaces for Deep Q-Learning.
+ *
+ * Implementations can use TensorFlow.js, a custom MLP, or other backends.
+ * All implementations should support Double DQN and Huber loss for stability.
+ */
 
 export interface QNet {
-  // Forward pass: returns Q-values per action for each state in the batch
+  /** Forward pass: returns Q-values per action for each state in the batch. */
   forward(batchStates: number[][]): number[][];
-  // Train on a batch of (states, action indices, TD targets); returns avg loss
+
+  /**
+   * Train on a batch of (states, action indices, TD targets).
+   * @param states - Encoded state vectors [B, inputSize]
+   * @param actionsIdx - Action indices [B]
+   * @param targets - TD targets [B]
+   * @param weights - Optional importance sampling weights for PER [B]
+   * @returns Average loss value
+   */
   trainOnBatch(
     states: number[][],
     actionsIdx: number[],
     targets: number[],
+    weights?: number[],
   ): number;
-  // Copy parameters from another network (target sync)
+
+  /**
+   * Compute TD errors for a batch (used for prioritized replay).
+   * @returns Array of TD errors [B]
+   */
+  computeTDErrors?(
+    states: number[][],
+    actionsIdx: number[],
+    targets: number[],
+  ): number[];
+
+  /** Copy parameters from another network (target sync). */
   copyFrom(source: QNet): void;
-  // Shapes
+
+  /** Soft update: target = tau * source + (1 - tau) * target. */
+  softUpdate?(source: QNet, tau: number): void;
+
   getInputSize(): number;
   getActionCount(): number;
-  // Serialize/deserialize model weights
+
+  /** Serialize model weights to file. */
   save(path: string): Promise<void>;
+  /** Load model weights from file. */
   load(path: string): Promise<void>;
 }
 
@@ -35,6 +64,12 @@ export interface DQNHyperparams {
   epsilonStart: number;
   epsilonMin: number;
   epsilonDecay: number;
+  // New hyperparameters for improved stability
+  useDoubleDQN?: boolean; // Use Double DQN for reduced overestimation
+  useHuberLoss?: boolean; // Use Huber loss instead of MSE
+  huberDelta?: number; // Huber loss delta (default: 1.0)
+  gradientClip?: number; // Gradient clipping value (default: 10.0)
+  tau?: number; // Soft update coefficient (default: 1.0 for hard update)
 }
 
 // Placeholder to unblock code completion; replace with real Torch.js-backed class.
@@ -280,11 +315,21 @@ export class QNetSimple implements QNet {
   }
 }
 
-// Torch.js-style implementation using TensorFlow.js backend.
-// Note: We depend on '@tensorflow/tfjs' to run in Node without native bindings.
+/**
+ * TensorFlow.js-backed Q-Network with improved training stability.
+ *
+ * Features:
+ * - Huber loss (smooth L1) for robustness to outliers
+ * - Gradient clipping to prevent exploding gradients
+ * - Soft update support for gradual target network updates
+ * - Importance sampling weight support for prioritized replay
+ */
 export class QNetTorch implements QNet {
   private model!: import("@tensorflow/tfjs").LayersModel;
   private optimizer!: import("@tensorflow/tfjs").Optimizer;
+  private useHuberLoss: boolean;
+  private huberDelta: number;
+  private gradientClip: number;
 
   constructor(
     private inputSize: number,
@@ -292,25 +337,55 @@ export class QNetTorch implements QNet {
     hidden1 = 128,
     hidden2 = 64,
     private lr = 1e-3,
+    options?: {
+      useHuberLoss?: boolean;
+      huberDelta?: number;
+      gradientClip?: number;
+    },
   ) {
+    this.useHuberLoss = options?.useHuberLoss ?? true;
+    this.huberDelta = options?.huberDelta ?? 1.0;
+    this.gradientClip = options?.gradientClip ?? 10.0;
     this.init(hidden1, hidden2);
   }
 
   private init(hidden1: number, hidden2: number): void {
     const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
     const model = tf.sequential();
+
+    // Input layer with He initialization for ReLU
     model.add(
       tf.layers.dense({
         units: hidden1,
         activation: "relu",
         inputShape: [this.inputSize],
+        kernelInitializer: "heNormal",
       }),
     );
-    model.add(tf.layers.dense({ units: hidden2, activation: "relu" }));
+
+    // Hidden layer
     model.add(
-      tf.layers.dense({ units: this.actionCount, activation: "linear" }),
+      tf.layers.dense({
+        units: hidden2,
+        activation: "relu",
+        kernelInitializer: "heNormal",
+      }),
     );
+
+    // Output layer (linear for Q-values)
+    model.add(
+      tf.layers.dense({
+        units: this.actionCount,
+        activation: "linear",
+        kernelInitializer: tf.initializers.randomUniform({
+          minval: -0.003,
+          maxval: 0.003,
+        }),
+      }),
+    );
+
     this.model = model;
+    // Use Adam optimizer with default betas (good for RL)
     this.optimizer = tf.train.adam(this.lr);
   }
 
@@ -327,63 +402,182 @@ export class QNetTorch implements QNet {
     return tf.tidy(() => {
       const xs = tf.tensor2d(batchStates, [batchStates.length, this.inputSize]);
       const out = this.model.predict(xs) as import("@tensorflow/tfjs").Tensor2D;
-      const arr = out.arraySync() as number[][];
-      return arr;
+      return out.arraySync() as number[][];
     });
   }
 
+  /**
+   * Train on a batch with Huber loss and gradient clipping.
+   * Supports importance sampling weights for prioritized replay.
+   */
   trainOnBatch(
     states: number[][],
     actionsIdx: number[],
     targets: number[],
+    weights?: number[],
   ): number {
     const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
     if (!this.model || !this.optimizer)
       throw new Error("QNetTorch not initialized");
+
     const B = states.length;
     let lossVal = 0;
+
+    // Use tidy to automatically clean up tensors
     tf.tidy(() => {
       const xs = tf.tensor2d(states, [B, this.inputSize]);
       const a = tf.tensor1d(actionsIdx, "int32");
       const y = tf.tensor1d(targets, "float32");
       const onehot = tf.oneHot(a, this.actionCount).toFloat();
+
+      // Importance sampling weights (default to 1.0 if not provided)
+      const w = weights
+        ? tf.tensor1d(weights, "float32")
+        : tf.ones([B], "float32");
+
       const trainFn = () => {
         const q = this.model.apply(xs, {
           training: true,
-        }) as import("@tensorflow/tfjs").Tensor2D; // [B, A]
-        const qsa = tf.sum(tf.mul(q, onehot), 1); // [B]
+        }) as import("@tensorflow/tfjs").Tensor2D;
+        const qsa = tf.sum(tf.mul(q, onehot), 1);
         const diff = tf.sub(qsa, y);
-        const loss = tf.mean(tf.square(diff));
-        return loss as unknown as import("@tensorflow/tfjs").Scalar;
+
+        let loss: import("@tensorflow/tfjs").Tensor;
+        if (this.useHuberLoss) {
+          // Huber loss (smooth L1): more robust to outliers
+          const absDiff = tf.abs(diff);
+          const quadratic = tf.minimum(absDiff, this.huberDelta);
+          const linear = tf.sub(absDiff, quadratic);
+          loss = tf.add(
+            tf.mul(tf.scalar(0.5), tf.square(quadratic)),
+            tf.mul(tf.scalar(this.huberDelta), linear),
+          );
+        } else {
+          // Standard MSE loss
+          loss = tf.square(diff);
+        }
+
+        // Apply importance sampling weights and take mean
+        const weightedLoss = tf.mul(loss, w);
+        return tf.mean(weightedLoss) as unknown as import("@tensorflow/tfjs").Scalar;
       };
-      const out = this.optimizer.minimize(
-        trainFn,
-        true,
-      ) as import("@tensorflow/tfjs").Scalar;
-      lossVal = out.arraySync() as number;
-      out.dispose();
+
+      // Compute gradients and apply clipping
+      const { value, grads } = this.optimizer.computeGradients(trainFn);
+      lossVal = (value as import("@tensorflow/tfjs").Scalar).arraySync() as number;
+
+      // Clip gradients by global norm
+      const gradValues = Object.values(grads);
+      const clippedGrads = this.clipGradientsByNorm(tf, gradValues, this.gradientClip);
+
+      // Apply clipped gradients
+      const namedGrads: { [key: string]: import("@tensorflow/tfjs").Tensor } = {};
+      const gradKeys = Object.keys(grads);
+      for (let i = 0; i < gradKeys.length; i++) {
+        namedGrads[gradKeys[i]!] = clippedGrads[i]!;
+      }
+      this.optimizer.applyGradients(namedGrads);
+
+      // Clean up
+      value.dispose();
+      clippedGrads.forEach((g) => g.dispose());
     });
+
     return lossVal;
   }
 
+  /**
+   * Clip gradients by global norm to prevent exploding gradients.
+   */
+  private clipGradientsByNorm(
+    tf: typeof import("@tensorflow/tfjs"),
+    grads: (import("@tensorflow/tfjs").Tensor | null)[],
+    clipNorm: number,
+  ): import("@tensorflow/tfjs").Tensor[] {
+    // Calculate global norm
+    let globalNorm = tf.scalar(0);
+    for (const g of grads) {
+      if (g) {
+        globalNorm = tf.add(globalNorm, tf.sum(tf.square(g)));
+      }
+    }
+    globalNorm = tf.sqrt(globalNorm);
+
+    // Clip factor
+    const clipFactor = tf.div(
+      tf.scalar(clipNorm),
+      tf.maximum(globalNorm, tf.scalar(clipNorm)),
+    );
+
+    // Apply clipping
+    const clipped: import("@tensorflow/tfjs").Tensor[] = [];
+    for (const g of grads) {
+      if (g) {
+        clipped.push(tf.mul(g, clipFactor));
+      } else {
+        clipped.push(tf.zeros([1]));
+      }
+    }
+    return clipped;
+  }
+
+  /**
+   * Compute TD errors for prioritized experience replay.
+   */
+  computeTDErrors(
+    states: number[][],
+    actionsIdx: number[],
+    targets: number[],
+  ): number[] {
+    const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+    return tf.tidy(() => {
+      const xs = tf.tensor2d(states, [states.length, this.inputSize]);
+      const a = tf.tensor1d(actionsIdx, "int32");
+      const y = tf.tensor1d(targets, "float32");
+      const onehot = tf.oneHot(a, this.actionCount).toFloat();
+      const q = this.model.predict(xs) as import("@tensorflow/tfjs").Tensor2D;
+      const qsa = tf.sum(tf.mul(q, onehot), 1);
+      const tdErrors = tf.sub(qsa, y);
+      return tdErrors.arraySync() as number[];
+    });
+  }
+
+  /** Hard copy: copy all weights from source network. */
   copyFrom(source: QNet): void {
-    // Hard sync: copy weights from source if it is also QNetTorch/QNetSimple
     if ((source as any).model && this.model) {
-      const tf =
-        require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
-      const srcWeights = (
-        source as any
-      ).model.getWeights() as import("@tensorflow/tfjs").Tensor[];
+      const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+      const srcWeights = (source as any).model.getWeights() as import("@tensorflow/tfjs").Tensor[];
       const clones = srcWeights.map((w) => tf.clone(w));
       this.model.setWeights(clones);
       clones.forEach((t) => t.dispose());
-      return;
     }
-    // Fallback: approximate via forward pass is not meaningful for weight copy; no-op.
+  }
+
+  /**
+   * Soft update: target = tau * source + (1 - tau) * target.
+   * This provides smoother, more stable target network updates.
+   */
+  softUpdate(source: QNet, tau: number): void {
+    if ((source as any).model && this.model) {
+      const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
+      const srcWeights = (source as any).model.getWeights() as import("@tensorflow/tfjs").Tensor[];
+      const tgtWeights = this.model.getWeights();
+
+      const newWeights = srcWeights.map((srcW, i) => {
+        const tgtW = tgtWeights[i]!;
+        return tf.add(tf.mul(srcW, tau), tf.mul(tgtW, 1 - tau));
+      });
+
+      this.model.setWeights(newWeights);
+
+      // Clean up intermediate tensors
+      srcWeights.forEach((t) => t.dispose());
+      tgtWeights.forEach((t) => t.dispose());
+      newWeights.forEach((t) => t.dispose());
+    }
   }
 
   async save(path: string): Promise<void> {
-    // Save weight arrays to JSON for portability without tfjs-node file I/O
     const tf = require("@tensorflow/tfjs") as typeof import("@tensorflow/tfjs");
     if (!this.model) throw new Error("QNetTorch not initialized");
     const fs = await import("fs");
@@ -395,9 +589,13 @@ export class QNetTorch implements QNet {
       })),
     );
     const payload = {
+      version: 2,
       inputSize: this.inputSize,
       actionCount: this.actionCount,
       lr: this.lr,
+      useHuberLoss: this.useHuberLoss,
+      huberDelta: this.huberDelta,
+      gradientClip: this.gradientClip,
       weights: serial,
     };
     await fs.promises.writeFile(path, JSON.stringify(payload));
@@ -410,7 +608,16 @@ export class QNetTorch implements QNet {
     const txt = await fs.promises.readFile(path, "utf8");
     const obj = JSON.parse(txt) as {
       weights: { shape: number[]; data: number[] }[];
+      useHuberLoss?: boolean;
+      huberDelta?: number;
+      gradientClip?: number;
     };
+
+    // Restore hyperparameters if present
+    if (obj.useHuberLoss !== undefined) this.useHuberLoss = obj.useHuberLoss;
+    if (obj.huberDelta !== undefined) this.huberDelta = obj.huberDelta;
+    if (obj.gradientClip !== undefined) this.gradientClip = obj.gradientClip;
+
     const tensors = obj.weights.map((w) =>
       tf.tensor(w.data, w.shape as [number, ...number[]]),
     );

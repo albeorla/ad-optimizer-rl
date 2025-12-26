@@ -16,8 +16,25 @@ export interface DQNAgentNNOptions {
   trainFreq?: number;
   targetSync?: number;
   replayCapacity?: number;
+  // New options for improved training
+  useDoubleDQN?: boolean; // Use Double DQN to reduce overestimation
+  useHuberLoss?: boolean; // Use Huber loss instead of MSE
+  huberDelta?: number; // Huber loss delta (default: 1.0)
+  gradientClip?: number; // Gradient clipping value (default: 10.0)
+  tau?: number; // Soft update coefficient (0-1, default: 1.0 for hard update)
+  warmupSteps?: number; // Steps before training starts (default: batchSize)
 }
 
+/**
+ * Neural Network-based DQN Agent with modern improvements.
+ *
+ * Features:
+ * - Double DQN for reduced Q-value overestimation
+ * - Huber loss for robustness to outliers
+ * - Gradient clipping for training stability
+ * - Soft target network updates option
+ * - Warmup period before training begins
+ */
 export class DQNAgentNN extends RLAgent {
   private qNet: QNet | undefined;
   private targetNet: QNet | undefined;
@@ -26,6 +43,9 @@ export class DQNAgentNN extends RLAgent {
   private trainCounter = 0;
   private replay: ReplayBuffer<Vec>;
   private lastAvgLoss: number | undefined;
+  private useDoubleDQN: boolean;
+  private tau: number;
+  private warmupSteps: number;
 
   constructor(opts?: DQNAgentNNOptions) {
     super();
@@ -42,6 +62,11 @@ export class DQNAgentNN extends RLAgent {
     this.discountFactor = gamma;
     this.learningRate = lr;
 
+    // New options with defaults
+    this.useDoubleDQN = opts?.useDoubleDQN ?? true; // Enable by default
+    this.tau = opts?.tau ?? 1.0; // Hard update by default
+    this.warmupSteps = opts?.warmupSteps ?? batchSize;
+
     this.hp = {
       lr,
       gamma,
@@ -52,6 +77,11 @@ export class DQNAgentNN extends RLAgent {
       epsilonStart: this.epsilon,
       epsilonMin: this.minEpsilon,
       epsilonDecay: this.epsilonDecay,
+      useDoubleDQN: this.useDoubleDQN,
+      useHuberLoss: opts?.useHuberLoss ?? true,
+      huberDelta: opts?.huberDelta ?? 1.0,
+      gradientClip: opts?.gradientClip ?? 10.0,
+      tau: this.tau,
     };
 
     this.replay = new ReplayBuffer<Vec>(replayCapacity);
@@ -60,8 +90,13 @@ export class DQNAgentNN extends RLAgent {
   private ensureInitialized(inputSize: number): void {
     if (this.qNet && this.targetNet) return;
     const A = ACTIONS.length;
-    this.qNet = new QNetTorch(inputSize, A, 128, 64, this.learningRate);
-    this.targetNet = new QNetTorch(inputSize, A, 128, 64, this.learningRate);
+    const netOptions = {
+      useHuberLoss: this.hp.useHuberLoss ?? true,
+      huberDelta: this.hp.huberDelta ?? 1.0,
+      gradientClip: this.hp.gradientClip ?? 10.0,
+    };
+    this.qNet = new QNetTorch(inputSize, A, 128, 64, this.learningRate, netOptions);
+    this.targetNet = new QNetTorch(inputSize, A, 128, 64, this.learningRate, netOptions);
     this.targetNet.copyFrom(this.qNet);
   }
 
@@ -109,6 +144,7 @@ export class DQNAgentNN extends RLAgent {
     const aIdx = actionToIndex(action);
     if (aIdx < 0) {
       // Fallback if action not found in grid (should not happen with deterministic grid)
+      console.warn(`Action not found in grid: ${JSON.stringify(action)}`);
       return;
     }
 
@@ -119,6 +155,9 @@ export class DQNAgentNN extends RLAgent {
     // Decay epsilon per step
     this.epsilon = Math.max(this.minEpsilon, this.epsilon * this.epsilonDecay);
 
+    // Wait for warmup period before training
+    if (this.stepCounter < this.warmupSteps) return;
+
     // Train periodically
     if (
       this.replay.size() >= this.hp.batchSize &&
@@ -126,33 +165,79 @@ export class DQNAgentNN extends RLAgent {
     ) {
       this.trainBatch();
       this.trainCounter++;
+
+      // Target network update
       if (this.trainCounter % this.hp.targetSync === 0) {
-        this.targetNet!.copyFrom(this.qNet!);
+        if (this.tau < 1.0 && this.targetNet!.softUpdate) {
+          // Soft update: gradually blend weights
+          this.targetNet!.softUpdate(this.qNet!, this.tau);
+        } else {
+          // Hard update: full copy
+          this.targetNet!.copyFrom(this.qNet!);
+        }
       }
     }
   }
 
+  /**
+   * Train on a batch using Double DQN or standard DQN.
+   *
+   * Double DQN: Uses online network to select actions, target network to evaluate.
+   * This reduces overestimation bias compared to standard DQN.
+   */
   private trainBatch(): void {
     const batch = this.replay.sample(this.hp.batchSize);
     if (batch.length === 0) return;
 
-    // Build state and next-state batches
+    const A = ACTIONS.length;
     const X: number[][] = batch.map((b) => b.s.slice());
     const Xp: number[][] = batch.map((b) => b.sp.slice());
-    const Qp = this.targetNet!.forward(Xp); // [B, A]
 
-    // Compute simple TD targets (no grad yet — placeholder)
-    const A = ACTIONS.length;
-    const y: number[] = new Array(batch.length).fill(0);
-    const qsa: number[] = new Array(batch.length).fill(0);
-    for (let i = 0; i < batch.length; i++) {
-      const b = batch[i]!;
-      const qpi = Qp[i] ?? new Array(A).fill(0);
-      const maxQp = qpi.reduce((m, v) => (v > m ? v : m), -Infinity);
-      y[i] = b.r + (b.done ? 0 : this.hp.gamma * maxQp);
-      // qsa is only for reporting loss; QNet will recompute internally during train
-      qsa[i] = 0;
+    // Compute TD targets
+    const y: number[] = new Array(batch.length);
+
+    if (this.useDoubleDQN) {
+      // Double DQN: use online network to select best action,
+      // target network to evaluate that action
+      const qOnline = this.qNet!.forward(Xp); // [B, A] - for action selection
+      const qTarget = this.targetNet!.forward(Xp); // [B, A] - for value estimation
+
+      for (let i = 0; i < batch.length; i++) {
+        const b = batch[i]!;
+        if (b.done) {
+          y[i] = b.r;
+        } else {
+          // Select best action using online network
+          const qOnlineRow = qOnline[i] ?? new Array(A).fill(0);
+          let bestAction = 0;
+          let bestValue = -Infinity;
+          for (let a = 0; a < A; a++) {
+            if (qOnlineRow[a]! > bestValue) {
+              bestValue = qOnlineRow[a]!;
+              bestAction = a;
+            }
+          }
+          // Evaluate that action using target network
+          const qTargetRow = qTarget[i] ?? new Array(A).fill(0);
+          y[i] = b.r + this.hp.gamma * qTargetRow[bestAction]!;
+        }
+      }
+    } else {
+      // Standard DQN: use target network for both selection and evaluation
+      const Qp = this.targetNet!.forward(Xp); // [B, A]
+
+      for (let i = 0; i < batch.length; i++) {
+        const b = batch[i]!;
+        if (b.done) {
+          y[i] = b.r;
+        } else {
+          const qpi = Qp[i] ?? new Array(A).fill(0);
+          const maxQp = Math.max(...qpi);
+          y[i] = b.r + this.hp.gamma * maxQp;
+        }
+      }
     }
+
     // Train network on (states, action indices, targets)
     const actionsIdx = batch.map((b) => b.aIdx);
     this.lastAvgLoss = this.qNet!.trainOnBatch(X, actionsIdx, y);

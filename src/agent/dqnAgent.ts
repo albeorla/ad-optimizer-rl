@@ -1,17 +1,21 @@
 import { AdAction, AdEnvironmentState } from "../types";
 import { RLAgent } from "./base";
-// DQN-REFAC TODO:
-// - Replace Q-table with Torch.js Q-network (+ target network) that outputs Q(s, ·).
-// - Move state/action encoding to `src/agent/encoding.ts` (see docs/torchjs_dqn_refactor.md).
-// - Implement replay buffer with (s, aIdx, r, s', done) and a `trainStep` minimizing TD error.
-// - Add target sync every N steps, epsilon/LR schedules, gradient clipping.
-// - Implement save/load of network weights and optimizer state; keep JSON manifest.
+import {
+  ACTIONS,
+  BUDGET_STEPS,
+  AGE_GROUPS,
+  CREATIVE_TYPES,
+  PLATFORMS,
+  BID_STRATEGIES,
+  INTEREST_BUNDLES,
+} from "./encoding";
 
 /**
- * Tabular Q-learning agent with ε-greedy policy and simple replay sampling.
+ * Tabular Q-learning agent with ε-greedy policy and experience replay.
  *
- * Uses a discrete, deterministic action grid from encoding.ts and a JSON-backed
- * Q-table for quick experimentation and interpretability.
+ * Uses the deterministic discrete action grid from encoding.ts for consistency
+ * between tabular and NN agents. Q-values are stored in a nested Map structure
+ * for interpretability and debugging.
  */
 export class DQNAgent extends RLAgent {
   private qTable: Map<string, Map<string, number>> = new Map();
@@ -24,8 +28,10 @@ export class DQNAgent extends RLAgent {
     done: boolean;
   }> = [];
   private maxReplaySize: number = 1000;
-  private initialLearningRate: number = this.learningRate;
+  private batchSize: number = 32;
+  private initialLearningRate: number;
   private lrDecay: number = 0.99;
+  private updateCount: number = 0;
 
   constructor(opts?: {
     learningRate?: number;
@@ -34,6 +40,8 @@ export class DQNAgent extends RLAgent {
     epsilonDecay?: number;
     minEpsilon?: number;
     lrDecay?: number;
+    maxReplaySize?: number;
+    batchSize?: number;
   }) {
     super();
     if (opts?.learningRate !== undefined) this.learningRate = opts.learningRate;
@@ -43,83 +51,16 @@ export class DQNAgent extends RLAgent {
     if (opts?.epsilonDecay !== undefined) this.epsilonDecay = opts.epsilonDecay;
     if (opts?.minEpsilon !== undefined) this.minEpsilon = opts.minEpsilon;
     if (opts?.lrDecay !== undefined) this.lrDecay = opts.lrDecay;
+    if (opts?.maxReplaySize !== undefined)
+      this.maxReplaySize = opts.maxReplaySize;
+    if (opts?.batchSize !== undefined) this.batchSize = opts.batchSize;
     this.initialLearningRate = this.learningRate;
-    this.actionSpace = this.generateActionSpace();
+    // Use the deterministic action space from encoding.ts
+    this.actionSpace = ACTIONS;
   }
 
   private pickRandom<T>(arr: readonly T[]): T {
     return arr[Math.floor(Math.random() * arr.length)]!;
-  }
-
-  /** Build a deterministic discrete action space for tabular learning. */
-  private generateActionSpace(): AdAction[] {
-    const actions: AdAction[] = [];
-    // Tighter budget multipliers for small-budget regime alignment
-    const budgetAdjustments = [0.95, 1.0, 1.05];
-    const ageGroups = ["18-24", "25-34", "35-44", "45+"];
-    let creativeTypes = ["lifestyle", "product", "discount", "ugc"] as const;
-    const lockedCreative = process.env.LOCKED_CREATIVE_TYPE;
-    if (
-      lockedCreative &&
-      (creativeTypes as readonly string[]).includes(lockedCreative)
-    ) {
-      creativeTypes = [lockedCreative] as any;
-    }
-    const bidStrategies: Array<"CPC" | "CPM" | "CPA"> = ["CPC", "CPM", "CPA"];
-    let platforms: Array<"tiktok" | "instagram" | "shopify"> = [
-      "tiktok",
-      "instagram",
-    ];
-    const envPlatforms = (process.env.ALLOWED_PLATFORMS || "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter((s) => s === "tiktok" || s === "instagram") as Array<
-      "tiktok" | "instagram"
-    >;
-    const disableIG =
-      (process.env.DISABLE_INSTAGRAM || "").toLowerCase() === "true";
-    if (envPlatforms.length) platforms = envPlatforms as any;
-    if (disableIG)
-      platforms = platforms.filter((p) => p !== "instagram") as any;
-
-    for (const budget of budgetAdjustments) {
-      for (const age of ageGroups) {
-        for (const creative of creativeTypes as any) {
-          for (const platform of platforms as any) {
-            for (const bidStrategy of bidStrategies) {
-              actions.push({
-                budgetAdjustment: budget,
-                targetAgeGroup: age,
-                targetInterests: this.generateInterests(),
-                creativeType: creative,
-                bidStrategy,
-                platform,
-              });
-            }
-          }
-        }
-      }
-    }
-    return actions;
-  }
-
-  private generateInterests(): string[] {
-    const allInterests = [
-      "fashion",
-      "sports",
-      "music",
-      "tech",
-      "fitness",
-      "art",
-      "travel",
-    ];
-    const numInterests = Math.floor(Math.random() * 3) + 1;
-    const interests: string[] = [];
-    for (let i = 0; i < numInterests; i++) {
-      const interest = this.pickRandom(allInterests);
-      if (!interests.includes(interest)) interests.push(interest);
-    }
-    return interests;
   }
 
   /** Compact, deterministic key for Q-table indexing. */
@@ -209,12 +150,25 @@ export class DQNAgent extends RLAgent {
     if (this.experienceReplay.length >= 32) this.replayExperience();
   }
 
-  /** Sample a small batch from replay and apply TD updates. */
+  /**
+   * Sample a batch from replay and apply TD updates.
+   * Uses Fisher-Yates partial shuffle for unique sampling without replacement.
+   */
   private replayExperience(): void {
-    const batchSize = Math.min(32, this.experienceReplay.length);
-    const batch = [] as typeof this.experienceReplay;
-    for (let i = 0; i < batchSize; i++)
-      batch.push(this.pickRandom(this.experienceReplay));
+    const n = Math.min(this.batchSize, this.experienceReplay.length);
+    if (n === 0) return;
+
+    // Fisher-Yates partial shuffle for unique sampling
+    const indices = Array.from(
+      { length: this.experienceReplay.length },
+      (_, i) => i,
+    );
+    const batch: typeof this.experienceReplay = [];
+    for (let i = 0; i < n; i++) {
+      const j = i + Math.floor(Math.random() * (indices.length - i));
+      [indices[i], indices[j]] = [indices[j]!, indices[i]!];
+      batch.push(this.experienceReplay[indices[i]!]!);
+    }
 
     for (const experience of batch) {
       const stateKey = this.stateToKey(experience.state);
@@ -230,31 +184,74 @@ export class DQNAgent extends RLAgent {
             maxNextQ = Math.max(maxNextQ, qValue);
         }
       }
-      const newQ =
-        currentQ +
-        this.learningRate *
-          (experience.reward + this.discountFactor * maxNextQ - currentQ);
+      const tdError =
+        experience.reward + this.discountFactor * maxNextQ - currentQ;
+      const newQ = currentQ + this.learningRate * tdError;
       this.qTable.get(stateKey)!.set(actionKey, newQ);
     }
+    this.updateCount++;
   }
 
-  /** Serialize the Q-table and scheduling params to a JSON file (console output). */
-  save(filepath: string): void {
+  /** Serialize the Q-table and scheduling params to a JSON file. */
+  async save(filepath: string): Promise<void> {
     const data = {
+      version: 1,
+      timestamp: new Date().toISOString(),
       qTable: Array.from(this.qTable.entries()).map(([state, actions]) => ({
         state,
         actions: Array.from(actions.entries()),
       })),
-      epsilon: this.epsilon,
-      learningRate: this.learningRate,
-      discountFactor: this.discountFactor,
+      hyperparams: {
+        epsilon: this.epsilon,
+        learningRate: this.learningRate,
+        discountFactor: this.discountFactor,
+        lrDecay: this.lrDecay,
+        minEpsilon: this.minEpsilon,
+        epsilonDecay: this.epsilonDecay,
+      },
+      stats: {
+        updateCount: this.updateCount,
+        qTableSize: this.getQTableSize(),
+        replaySize: this.experienceReplay.length,
+      },
     };
-    console.log(`Model saved to ${filepath}:`, data);
+    const fs = await import("fs");
+    await fs.promises.writeFile(filepath, JSON.stringify(data, null, 2));
+    console.log(`Model saved to ${filepath}`);
   }
 
-  /** Placeholder for loading a saved model manifest. */
-  load(filepath: string): void {
-    console.log(`Loading model from ${filepath}`);
+  /** Load a saved model from JSON file. */
+  async load(filepath: string): Promise<void> {
+    const fs = await import("fs");
+    try {
+      const content = await fs.promises.readFile(filepath, "utf8");
+      const data = JSON.parse(content);
+
+      // Restore Q-table
+      this.qTable.clear();
+      for (const entry of data.qTable || []) {
+        const stateMap = new Map<string, number>(entry.actions);
+        this.qTable.set(entry.state, stateMap);
+      }
+
+      // Restore hyperparameters
+      if (data.hyperparams) {
+        this.epsilon = data.hyperparams.epsilon ?? this.epsilon;
+        this.learningRate = data.hyperparams.learningRate ?? this.learningRate;
+        this.discountFactor =
+          data.hyperparams.discountFactor ?? this.discountFactor;
+        this.lrDecay = data.hyperparams.lrDecay ?? this.lrDecay;
+        this.minEpsilon = data.hyperparams.minEpsilon ?? this.minEpsilon;
+        this.epsilonDecay = data.hyperparams.epsilonDecay ?? this.epsilonDecay;
+      }
+
+      console.log(
+        `Model loaded from ${filepath} (${this.getQTableSize()} Q-values)`,
+      );
+    } catch (err) {
+      console.error(`Failed to load model from ${filepath}:`, err);
+      throw err;
+    }
   }
 
   // Introspection helpers for diagnostics
@@ -267,34 +264,79 @@ export class DQNAgent extends RLAgent {
     return total;
   }
 
-  // Optional warm-start seeding
+  /**
+   * Warm-start the Q-table with domain knowledge heuristics.
+   * Uses valid actions from the deterministic action space.
+   */
   seedHeuristics(stateTemplate: AdEnvironmentState): void {
-    const hours = [18, 19, 20];
-    const combos: AdAction[] = [
+    // Peak engagement hours for social media ads
+    const peakHours = [18, 19, 20, 21];
+    // High-value action combinations based on domain knowledge
+    const goodActions: AdAction[] = [
+      // TikTok: Young audience + UGC content works well
       {
-        budgetAdjustment: 1.25,
+        budgetAdjustment: 1.05, // Valid budget from BUDGET_STEPS
         targetAgeGroup: "18-24",
         targetInterests: ["fashion"],
         creativeType: "ugc",
         bidStrategy: "CPC",
         platform: "tiktok",
       },
+      // Instagram: 25-34 + lifestyle/product content
       {
         budgetAdjustment: 1.0,
         targetAgeGroup: "25-34",
-        targetInterests: ["lifestyle"],
+        targetInterests: ["fashion"],
         creativeType: "product",
         bidStrategy: "CPM",
         platform: "instagram",
       },
+      // Conservative budget during testing
+      {
+        budgetAdjustment: 1.0,
+        targetAgeGroup: "25-34",
+        targetInterests: ["tech"],
+        creativeType: "lifestyle",
+        bidStrategy: "CPA",
+        platform: "tiktok",
+      },
     ];
-    for (const hod of hours) {
+
+    // Filter to only valid actions in our action space
+    const validActions = goodActions.filter((a) =>
+      this.actionSpace.some(
+        (validA) =>
+          validA.budgetAdjustment === a.budgetAdjustment &&
+          validA.targetAgeGroup === a.targetAgeGroup &&
+          validA.creativeType === a.creativeType &&
+          validA.platform === a.platform &&
+          validA.bidStrategy === a.bidStrategy,
+      ),
+    );
+
+    for (const hod of peakHours) {
       const state = { ...stateTemplate, hourOfDay: hod };
       const sk = this.stateToKey(state);
       if (!this.qTable.has(sk)) this.qTable.set(sk, new Map());
-      for (const a of combos) {
+      for (const a of validActions) {
         const ak = this.actionToKey(a);
-        this.qTable.get(sk)!.set(ak, 5.0);
+        // Set a moderate positive value to encourage exploration
+        this.qTable.get(sk)!.set(ak, 3.0);
+      }
+    }
+
+    // Also seed some negative values for known bad combinations
+    const badHours = [2, 3, 4]; // Low engagement hours
+    for (const hod of badHours) {
+      const state = { ...stateTemplate, hourOfDay: hod };
+      const sk = this.stateToKey(state);
+      if (!this.qTable.has(sk)) this.qTable.set(sk, new Map());
+      // Discourage high budget during low-engagement hours
+      for (const a of this.actionSpace) {
+        if (a.budgetAdjustment > 1.0) {
+          const ak = this.actionToKey(a);
+          this.qTable.get(sk)!.set(ak, -1.0);
+        }
       }
     }
   }

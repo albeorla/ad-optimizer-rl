@@ -121,34 +121,51 @@ const selectedCreatives =
     ? [LOCKED_CREATIVE]
     : Array.from(CREATIVE_TYPES);
 
+/**
+ * Create a deterministic, canonical key for an action.
+ * Interests are sorted to ensure order-independence.
+ */
+function actionToKey(a: AdAction): string {
+  // Sort interests for canonical representation (order-independent)
+  const sortedInterests = [...a.targetInterests].sort();
+  return `${a.budgetAdjustment}|${a.targetAgeGroup}|${a.creativeType}|${a.platform}|${a.bidStrategy}|${sortedInterests.join(",")}`;
+}
+
 /** Deterministic discrete action grid built at module load. */
 export const ACTIONS: AdAction[] = [];
+
+/** O(1) action-to-index lookup map (built once at module load). */
+const ACTION_INDEX_MAP = new Map<string, number>();
+
+// Build both ACTIONS array and index map together
 for (const b of BUDGET_STEPS)
   for (const age of AGE_GROUPS)
     for (const cr of selectedCreatives as any)
       for (const pf of selectedPlatforms as any)
         for (const bid of BID_STRATEGIES)
-          for (const ib of INTEREST_BUNDLES)
-            ACTIONS.push({
+          for (const ib of INTEREST_BUNDLES) {
+            const action: AdAction = {
               budgetAdjustment: b,
               targetAgeGroup: age as any,
               targetInterests: ib.slice() as string[],
               creativeType: cr as any,
               bidStrategy: bid as any,
               platform: pf as any,
-            });
+            };
+            const key = actionToKey(action);
+            ACTION_INDEX_MAP.set(key, ACTIONS.length);
+            ACTIONS.push(action);
+          }
 
-/** Deterministic index for an action in the ACTIONS grid. */
+/**
+ * O(1) lookup for action index in the ACTIONS grid.
+ * Uses hash map instead of linear search for performance.
+ * Returns -1 if action not found.
+ */
 export function actionToIndex(a: AdAction): number {
-  return ACTIONS.findIndex(
-    (x) =>
-      x.budgetAdjustment === a.budgetAdjustment &&
-      x.targetAgeGroup === a.targetAgeGroup &&
-      x.creativeType === a.creativeType &&
-      x.platform === a.platform &&
-      x.bidStrategy === a.bidStrategy &&
-      JSON.stringify(x.targetInterests) === JSON.stringify(a.targetInterests),
-  );
+  const key = actionToKey(a);
+  const idx = ACTION_INDEX_MAP.get(key);
+  return idx !== undefined ? idx : -1;
 }
 
 /** Safe reverse mapping from index to action in the ACTIONS grid. */
@@ -158,6 +175,17 @@ export function indexToAction(idx: number): AdAction {
   return ACTIONS[clamped]!;
 }
 
+/** Get the total number of actions in the action space. */
+export function getActionCount(): number {
+  return ACTIONS.length;
+}
+
+/** Check if an action exists in the action space. */
+export function isValidAction(a: AdAction): boolean {
+  return actionToIndex(a) >= 0;
+}
+
 // DQN-REFAC NOTE:
 // - These encoders provide the deterministic mapping required by the NN.
 // - Keep category orders/vocabulary stable across training and production.
+// - Action index lookup is now O(1) via hash map instead of O(n) linear search.
