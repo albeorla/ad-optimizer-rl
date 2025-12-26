@@ -76,8 +76,24 @@ Goal: maximize profit subject to daily spend ≤ B (e.g., $30/day).
 
 ## 11) Code Map
 
-- Q‑learning: `src/agent/dqnAgent.ts`
-- Simulator shaping: `src/platforms/mockTikTok.ts`, `src/platforms/mockInstagram.ts`
-- Env reward (ROAS bonus, overspend penalty): `src/environment/simulator.ts`
-- Guardrails (starter): `src/execution/guardrails.ts`
-- Real runner (skeleton): `src/run/real.ts`
+| Component | File |
+|-----------|------|
+| Tabular Q-learning | `src/agent/dqnAgent.ts` |
+| Neural DQN | `src/agent/dqnAgentNN.ts` |
+| Conservative Q-Learning (CQL) | `src/agent/cqlAgent.ts` |
+| State/Action encoding | `src/agent/encoding.ts` |
+| Experience replay | `src/agent/replay.ts` |
+| PID controllers | `src/control/PidController.ts` |
+| Delayed feedback (GDFM) | `src/data/AttributionBuffer.ts` |
+| Offline Policy Evaluation | `src/evaluation/OPE.ts` |
+| Simulator shaping | `src/platforms/mockTikTok.ts`, `src/platforms/mockInstagram.ts` |
+| Environment reward | `src/environment/simulator.ts` |
+| Guardrails | `src/execution/guardrails.ts` |
+| Safety layer | `src/execution/SafetyLayer.ts` |
+| State enrichment | `src/types/EnrichedState.ts` |
+| Real runner | `src/run/real.ts` |
+| Shadow training | `src/run/shadowTraining.ts` |
+
+---
+
+*Last updated: December 2025*
